@@ -25,6 +25,7 @@ def defaults():
     algorithm_kwargs = dict(
         demo_batch_size=1024,  # Number of expert samples per discriminator update
         n_disc_updates_per_round=4,  # Num discriminator updates per generator round
+        gen_replay_buffer_capacity=2048,
     )
     algorithm_specific = {}  # algorithm_specific[algorithm] is merged with config
 
@@ -86,6 +87,7 @@ def seals_mountain_car():
 @train_adversarial_ex.named_config
 def pendulum():
     common = dict(env_name="Pendulum-v1")
+
 
 
 # Standard MuJoCo Gym environment named configs

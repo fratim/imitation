@@ -34,7 +34,7 @@ def default_end_cond(rollout_save_n_timesteps, rollout_save_n_episodes):
     # This way the Sacred CLI caller can set `rollout_save_n_episodes` only
     # without getting an error that `rollout_save_n_timesteps is not None`.
     if rollout_save_n_timesteps is None and rollout_save_n_episodes is None:
-        rollout_save_n_timesteps = 2000  # Min timesteps saved per file, optional.
+        rollout_save_n_timesteps = 20000  # Min timesteps saved per file, optional.
 
 
 # Standard Gym env configs
