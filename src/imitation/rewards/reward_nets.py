@@ -126,6 +126,10 @@ class RewardNet(nn.Module, abc.ABC):
         Returns:
             Computed rewards of shape `(batch_size,`).
         """
+
+        state = state[:, 0, None]
+        next_state = next_state[:, 0, None]
+
         with networks.evaluating(self):
             # switch to eval mode (affecting normalization, dropout, etc)
 
@@ -206,6 +210,9 @@ class ShapedRewardNet(RewardNet):
         next_state: th.Tensor,
         done: th.Tensor,
     ):
+        state = state[:, 0, None]
+        next_state = next_state[:, 0, None]
+
         base_reward_net_output = self.base(state, action, next_state, done)
         new_shaping_output = self.potential(next_state).flatten()
         old_shaping_output = self.potential(state).flatten()

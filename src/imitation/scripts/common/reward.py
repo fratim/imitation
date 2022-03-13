@@ -62,8 +62,15 @@ def make_reward_net(
     Returns:
         None if `reward_net_cls` is None; otherwise, an instance of `reward_net_cls`.
     """
+
+    from gym.spaces import Box
+    import numpy as np
+
+    new_obs_space = Box(low=np.array((venv.observation_space.low[0],)), high=np.array((venv.observation_space.high[0],)))
+
     reward_net = net_cls(
-        venv.observation_space,
+        #venv.observation_space,
+        new_obs_space,
         venv.action_space,
         **net_kwargs,
     )
