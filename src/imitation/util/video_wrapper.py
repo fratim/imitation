@@ -34,6 +34,12 @@ class VideoWrapper(gym.Wrapper):
         self.single_video = single_video
 
         self.directory = os.path.abspath(directory)
+
+        print(f" \n \n \n \n \n \n \n "
+              f""
+              f"Initializing video directory at {self.directory}"
+              f"\n \n \n ")
+
         os.makedirs(self.directory)
 
     def _reset_video_recorder(self) -> None:
