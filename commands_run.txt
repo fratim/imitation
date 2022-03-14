@@ -1,2 +1,2 @@
-python -m imitation.scripts.train_rl with seals_cartpole common.log_dir=quickstart/rl_seals_cartpole/
-python -m imitation.scripts.train_adversarial airl with seals_cartpole demonstrations.rollout_path=quickstart/rl_seals_cartpole/rollouts/final.pkl
+python -m imitation.scripts.train_rl with seals_ant common.log_dir=quickstart/rl_seals_antv1/
+python -m imitation.scripts.train_adversarial airl with seals_ant demonstrations.rollout_path=quickstart/rl_seals_antv1/rollouts/final.pkl

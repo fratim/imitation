@@ -25,7 +25,6 @@ from imitation.rewards.serialize import load_reward
 from imitation.scripts.common import common, rl, train
 from imitation.scripts.config.train_rl import train_rl_ex
 
-
 @train_rl_ex.main
 def train_rl(
     *,
@@ -133,10 +132,10 @@ def train_rl(
     return train.eval_policy(rl_algo, venv)
 
 
-def main_console():
+def main_console(commandline_command):
     observer = FileStorageObserver(osp.join("output", "sacred", "train_rl"))
     train_rl_ex.observers.append(observer)
-    train_rl_ex.run_commandline()
+    train_rl_ex.run_commandline(commandline_command)
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -112,6 +112,7 @@ def reacher():
 
 @train_rl_ex.named_config
 def seals_ant():
+    total_timesteps = int(1e7)
     common = dict(env_name="seals/Ant-v0")
 
 

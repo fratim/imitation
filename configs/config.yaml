@@ -1,0 +1,43 @@
+
+defaults:
+    - override /hydra/launcher: submitit_slurm
+# @package hydra.launcher
+hydra:
+    launcher:
+        submitit_folder: logs/multiruns/.submitit/%j
+        timeout_min: 600
+        cpus_per_task: 8
+        gpus_per_node: 1
+        tasks_per_node: 1
+        mem_gb: 48
+        nodes: 1
+        name: testscript
+        _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+        partition: gpu
+        comment: null
+        constraint: p40
+        exclude: gnodec1
+        max_num_timeout: 0
+        additional_parameters: {}
+        array_parallelism: 12
+        setup: null
+
+    sweep:
+        dir: /work/frtim/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+dummy_config: 10
+
+sacred:
+    train_rl_command: with seals_ant common.log_dir=quickstart/rl_seals_antv1/
+    train_adversarial_command: airl with seals_ant demonstrations.rollout_path=quickstart/rl_seals_antv1/rollouts/final.pkl
+
+#sacred:
+#    train_rl_command: with pendulum common.fast train.fast rl.fast fast common.log_dir=quickstart/rl/
+#    train_adversarial_command: airl with pendulum common.fast demonstrations.fast train.fast rl.fast fast demonstrations.rollout_path=quickstart/rl/rollouts/final.pkl
+
+# add job id
+job_id: ${hydra.job.num}
+
+
+
+

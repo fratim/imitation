@@ -157,10 +157,10 @@ def airl():
     return train_adversarial(algo_cls=airl_algo.AIRL)
 
 
-def main_console():
+def main_console(commandline_command):
     observer = FileStorageObserver(osp.join("output", "sacred", "train_adversarial"))
     train_adversarial_ex.observers.append(observer)
-    train_adversarial_ex.run_commandline()
+    train_adversarial_ex.run_commandline(commandline_command)
 
 
 if __name__ == "__main__":  # pragma: no cover
