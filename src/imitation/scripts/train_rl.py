@@ -132,10 +132,13 @@ def train_rl(
     return train.eval_policy(rl_algo, venv)
 
 
-def main_console(commandline_command):
+def main_console(commandline_command=None):
     observer = FileStorageObserver(osp.join("output", "sacred", "train_rl"))
     train_rl_ex.observers.append(observer)
-    train_rl_ex.run_commandline(commandline_command)
+    if commandline_command is None:
+        train_rl_ex.run_commandline()
+    else:
+        train_rl_ex.run_commandline(commandline_command)
 
 
 if __name__ == "__main__":  # pragma: no cover

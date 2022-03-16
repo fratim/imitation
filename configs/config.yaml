@@ -1,5 +1,6 @@
 
 defaults:
+    - sacred: seals_ant
     - override /hydra/launcher: submitit_slurm
 # @package hydra.launcher
 hydra:
@@ -26,11 +27,6 @@ hydra:
         dir: /work/frtim/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
 dummy_config: 10
-
-sacred:
-    train_rl_command: with seals_ant common.log_dir=quickstart/rl_seals_antv1/
-    train_adversarial_command: airl with seals_ant demonstrations.rollout_path=quickstart/rl_seals_antv1/rollouts/final.pkl
-
 #sacred:
 #    train_rl_command: with pendulum common.fast train.fast rl.fast fast common.log_dir=quickstart/rl/
 #    train_adversarial_command: airl with pendulum common.fast demonstrations.fast train.fast rl.fast fast demonstrations.rollout_path=quickstart/rl/rollouts/final.pkl

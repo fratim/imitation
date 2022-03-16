@@ -90,6 +90,7 @@ def mountain_car():
 @train_rl_ex.named_config
 def seals_mountain_car():
     common = dict(env_name="seals/MountainCar-v0")
+    total_timesteps = int(3e5)
 
 
 @train_rl_ex.named_config
@@ -112,7 +113,7 @@ def reacher():
 
 @train_rl_ex.named_config
 def seals_ant():
-    total_timesteps = int(1e7)
+    total_timesteps = int(1e6)
     common = dict(env_name="seals/Ant-v0")
 
 

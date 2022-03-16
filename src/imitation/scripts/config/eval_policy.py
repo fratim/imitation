@@ -15,7 +15,7 @@ def replay_defaults():
     eval_n_timesteps = int(1e4)  # Min timesteps to evaluate, optional.
     eval_n_episodes = None  # Num episodes to evaluate, optional.
 
-    videos = False  # save video files
+    videos = True  # save video files
     video_kwargs = {}  # arguments to VideoWrapper
     render = False  # render to screen
     render_fps = 60  # -1 to render at full speed
@@ -77,6 +77,8 @@ def mountain_car():
 
 @eval_policy_ex.named_config
 def seals_mountain_car():
+    eval_n_timesteps = int(200)
+    eval_n_episodes = 1
     common = dict(env_name="seals/MountainCar-v0")
 
 
@@ -92,6 +94,8 @@ def reacher():
 
 @eval_policy_ex.named_config
 def seals_ant():
+    eval_n_timesteps = int(1000)
+    eval_n_episodes = 1
     common = dict(env_name="seals/Ant-v0")
 
 
