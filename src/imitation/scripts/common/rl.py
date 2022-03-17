@@ -17,18 +17,24 @@ from imitation.scripts.common.train import train_ingredient
 rl_ingredient = sacred.Ingredient("rl", ingredients=[train_ingredient])
 logger = logging.getLogger(__name__)
 
+from sacred import SETTINGS
+SETTINGS.CONFIG.READ_ONLY_CONFIG = False
 
 @rl_ingredient.config
 def config():
-    rl_cls = stable_baselines3.PPO
-    batch_size = 2048  # batch size for RL algorithm
+    rl_cls = stable_baselines3.SAC
+    batch_size = 512  # batch size for RL algorithm
     rl_kwargs = dict(
-        # For recommended PPO hyperparams in each environment, see:
-        # https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml
-        learning_rate=3e-4,
-        batch_size=64,
-        n_epochs=10,
-        ent_coef=0.0,
+    #     # For recommended PPO hyperparams in each environment, see:
+    #     # https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml
+        learning_rate = 0.0003, \
+        buffer_size = 500,
+        learning_starts = 100,
+        train_freq = 32,
+        tau = 0.005,
+        ent_coef = 'auto',
+        target_update_interval = 256,
+    #
     )
     locals()  # quieten flake8
 

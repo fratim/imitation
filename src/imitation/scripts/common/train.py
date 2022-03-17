@@ -6,6 +6,8 @@ from typing import Any, Mapping, Union
 import sacred
 from stable_baselines3.common import base_class, policies, torch_layers, vec_env
 
+import stable_baselines3
+
 import imitation.util.networks
 from imitation.data import rollout
 from imitation.policies import base
@@ -17,7 +19,7 @@ logger = logging.getLogger(__name__)
 @train_ingredient.config
 def config():
     # Training
-    policy_cls = base.FeedForward32Policy
+    policy_cls = stable_baselines3.sac.MlpPolicy
     policy_kwargs = {}
 
     # Evaluation
