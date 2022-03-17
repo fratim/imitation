@@ -17,6 +17,7 @@ from imitation.rewards.serialize import load_reward
 from imitation.scripts.common import common
 from imitation.scripts.config.eval_policy import eval_policy_ex
 from imitation.util import video_wrapper
+from xvfbwrapper import Xvfb
 
 
 class InteractiveRender(VecEnvWrapper):
@@ -119,10 +120,24 @@ def eval_policy(
         venv.close()
 
 
-def main_console():
-    observer = FileStorageObserver(osp.join("output", "sacred", "eval_policy"))
-    eval_policy_ex.observers.append(observer)
-    eval_policy_ex.run_commandline()
+def main_console(parameters=None, flag="default"):
+    vdisplay = Xvfb(width=1024, height=768, colordepth=24)
+    vdisplay.start()
+
+    try:
+        observer = FileStorageObserver(osp.join("output", "sacred", "eval_policy", flag))
+        eval_policy_ex.observers.append(observer)
+        if parameters is None:
+            eval_policy_ex.run_commandline()
+        elif isinstance(parameters, str):
+            eval_policy_ex.run_commandline(parameters)
+        else:
+            eval_policy_ex.run(config_updates=parameters["config_updates"], named_configs=parameters["named_configs"])
+    finally:
+        # always either wrap your usage of Xvfb() with try / finally,
+        # or alternatively use Xvfb as a context manager.
+        # If you don't, you'll probably end up with a bunch of junk in /tmp
+        vdisplay.stop()
 
 
 if __name__ == "__main__":  # pragma: no cover

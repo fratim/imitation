@@ -157,13 +157,15 @@ def airl():
     return train_adversarial(algo_cls=airl_algo.AIRL)
 
 
-def main_console(commandline_command):
+def main_console(parameters=None):
     observer = FileStorageObserver(osp.join("output", "sacred", "train_adversarial"))
     train_adversarial_ex.observers.append(observer)
-    if commandline_command is not None:
-        train_adversarial_ex.run_commandline(commandline_command)
-    else:
+    if parameters is None:
         train_adversarial_ex.run_commandline()
+    elif isinstance(parameters, str):
+        train_adversarial_ex.run_commandline(parameters)
+    else:
+        train_adversarial_ex.run(command_name=parameters["command_name"], config_updates=parameters["config_updates"], named_configs=parameters["named_configs"])
 
 if __name__ == "__main__":  # pragma: no cover
     main_console()

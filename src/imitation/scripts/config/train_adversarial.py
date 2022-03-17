@@ -163,6 +163,9 @@ def seals_walker():
 
 # Debug configs
 
+@train_adversarial_ex.named_config
+def test():
+    total_timesteps = 10000
 
 @train_adversarial_ex.named_config
 def fast():

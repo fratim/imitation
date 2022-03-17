@@ -91,6 +91,15 @@ def mountain_car():
 def seals_mountain_car():
     common = dict(env_name="seals/MountainCar-v0")
     total_timesteps = int(3e5)
+    rl = dict(batch_size=2048,
+              rl_kwargs=
+              dict(
+                  learning_rate=3e-4,
+                  batch_size=64,
+                  n_epochs=10,
+                  ent_coef=0.0,
+              )
+              )
 
 
 @train_rl_ex.named_config
@@ -113,8 +122,23 @@ def reacher():
 
 @train_rl_ex.named_config
 def seals_ant():
-    total_timesteps = int(1e6)
+    total_timesteps = int(1e7)
     common = dict(env_name="seals/Ant-v0")
+    rl = dict(batch_size=512,
+              rl_kwargs=
+                dict(
+                    ## Parameters specifically for ant from https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml
+                    batch_size=32,
+                    gamma=0.98,
+                    learning_rate=1.90609e-05,
+                    ent_coef=4.9646e-07,
+                    clip_range=0.1,
+                    n_epochs=10,
+                    gae_lambda=0.8,
+                    max_grad_norm=0.6,
+                    vf_coef=0.677239
+                )
+    )
 
 
 @train_rl_ex.named_config
@@ -128,6 +152,10 @@ def seals_walker():
 
 
 # Debug configs
+@train_rl_ex.named_config
+def test():
+    """Intended for testing purposes: small # of updates, ends quickly."""
+    total_timesteps = int(20000)
 
 
 @train_rl_ex.named_config

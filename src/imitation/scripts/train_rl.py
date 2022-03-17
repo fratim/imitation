@@ -132,13 +132,16 @@ def train_rl(
     return train.eval_policy(rl_algo, venv)
 
 
-def main_console(commandline_command=None):
+def main_console(parameters=None):
     observer = FileStorageObserver(osp.join("output", "sacred", "train_rl"))
     train_rl_ex.observers.append(observer)
-    if commandline_command is None:
+    if parameters is None:
         train_rl_ex.run_commandline()
+    elif isinstance(parameters, str):
+        train_rl_ex.run_commandline(parameters)
     else:
-        train_rl_ex.run_commandline(commandline_command)
+        train_rl_ex.run(config_updates=parameters["config_updates"], named_configs=parameters["named_configs"])
+
 
 
 if __name__ == "__main__":  # pragma: no cover
