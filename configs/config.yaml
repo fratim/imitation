@@ -1,11 +1,13 @@
 
 defaults:
+    - env: acrobot_org
+    - sacred: standard
     - override /hydra/launcher: submitit_slurm
-# @package hydra.launcher
+
 hydra:
     launcher:
         submitit_folder: logs/multiruns/.submitit/%j
-        timeout_min: 600
+        timeout_min: 300
         cpus_per_task: 8
         gpus_per_node: 1
         tasks_per_node: 1
@@ -15,59 +17,19 @@ hydra:
         _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
         partition: gpu
         comment: null
-        constraint: p40
         exclude: gnodec1
         max_num_timeout: 0
         additional_parameters: {}
         array_parallelism: 12
         setup: null
 
-    sweep:
-        dir: /work/frtim/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
-
-sacred:
-    train_rl:
-        named_configs:
-            0: "seals_mountain_car"
-            1: "test"
-        config_updates:
-            common:
-                log_dir: logss/
-
-    eval_rl_policy:
-        named_configs:
-            0: "seals_mountain_car"
-        config_updates:
-            policy_path: logss/policies/final
-            policy_type: ppo
-            videos: 1
-
-    train_adversarial:
-        command_name: "airl"
-        named_configs:
-            0: "seals_mountain_car"
-            1: "test"
-        config_updates:
-            common:
-                log_dir: logss/
-            demonstrations:
-                rollout_path: logss/rollouts/final.pkl
-
-    eval_irl_policy:
-        named_configs:
-            0: "seals_mountain_car"
-        config_updates:
-            policy_path: logss/checkpoints/final/gen_policy
-            policy_type: ppo
-            videos: 1
-
-
-#sacred:
-#    train_rl_command: with pendulum common.fast train.fast rl.fast fast common.log_dir=quickstart/rl/
-#    train_adversarial_command: airl with pendulum common.fast demonstrations.fast train.fast rl.fast fast demonstrations.rollout_path=quickstart/rl/rollouts/final.pkl
+    run:
+        dir: /work/frtim/airl_runs/${env.name}/${now:%Y-%m-%d}_{now:%H-%M-%S}
 
 # add job id
 job_id: ${hydra.job.num}
+
+
 
 
 

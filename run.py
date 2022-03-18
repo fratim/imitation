@@ -22,7 +22,7 @@ def main(config):
 
 def hydra_to_sacred(input):
     input_transformed = dict()
-    input_transformed["named_configs"] = [str(item) for item in input["named_configs"].values()]
+    input_transformed["named_configs"] = OmegaConf.to_object(input["named_configs"])
     input_transformed["config_updates"] = OmegaConf.to_object(input["config_updates"])
 
     if "command_name" in input.keys():
