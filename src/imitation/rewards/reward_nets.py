@@ -11,6 +11,8 @@ from torch import nn
 
 from imitation.util import networks
 
+# target_states = dict("mountain_car": (0))
+
 
 class RewardNet(nn.Module, abc.ABC):
     """Minimal abstract reward network.
@@ -127,6 +129,7 @@ class RewardNet(nn.Module, abc.ABC):
             Computed rewards of shape `(batch_size,`).
         """
 
+        # asdf
         state = state[:, 0, None]
         next_state = next_state[:, 0, None]
 
@@ -210,6 +213,7 @@ class ShapedRewardNet(RewardNet):
         next_state: th.Tensor,
         done: th.Tensor,
     ):
+        #asdf
         state = state[:, 0, None]
         next_state = next_state[:, 0, None]
 

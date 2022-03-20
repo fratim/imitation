@@ -111,6 +111,9 @@ def train_adversarial(
 
     venv = common_config.make_venv()
     gen_algo = rl.make_rl_algo(venv)
+
+    ## adjust input size of reward net here
+
     reward_net = reward.make_reward_net(venv)
 
     logger.info(f"Using '{algo_cls}' algorithm")
