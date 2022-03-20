@@ -1,6 +1,7 @@
 train_rl:
     named_configs:
         - ${env.name}
+        - test
     config_updates:
         common:
             log_dir: logss/
@@ -19,6 +20,7 @@ train_adversarial:
     command_name: "airl"
     named_configs:
         - ${env.name}
+        - test
     config_updates:
         common:
             log_dir: logss/

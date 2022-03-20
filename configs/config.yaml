@@ -1,7 +1,8 @@
 
 defaults:
-    - env: acrobot_org
+    - env: seals_mountain_car_org
     - sacred: standard
+    - seed: one
     - override /hydra/launcher: submitit_slurm
 
 hydra:

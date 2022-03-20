@@ -133,6 +133,29 @@ def half_cheetah():
 def seals_hopper():
     locals().update(**MUJOCO_SHARED_LOCALS)
     common = dict(env_name="seals/Hopper-v0")
+    rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
+    algorithm_specific = dict(
+        airl=dict(total_timesteps=int(5e6)),
+        gail=dict(total_timesteps=int(8e6)),
+    )
+    reward = dict(
+        algorithm_specific=dict(
+            airl=dict(
+                net_cls=reward_nets.BasicShapedRewardNet,
+                net_kwargs=dict(
+                    reward_hid_sizes=(32,),
+                    potential_hid_sizes=(32,),
+                ),
+            ),
+        ),
+    )
+    algorithm_kwargs = dict(
+        # Number of discriminator updates after each round of generator updates
+        n_disc_updates_per_round=16,
+        # Equivalent to no replay buffer if batch size is the same
+        gen_replay_buffer_capacity=16384,
+        demo_batch_size=8192,
+    )
 
 
 @train_adversarial_ex.named_config
@@ -152,7 +175,29 @@ def reacher():
 def seals_swimmer():
     locals().update(**MUJOCO_SHARED_LOCALS)
     common = dict(env_name="seals/Swimmer-v0")
-    total_timesteps = int(2e6)
+    rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
+    algorithm_specific = dict(
+        airl=dict(total_timesteps=int(5e6)),
+        gail=dict(total_timesteps=int(8e6)),
+    )
+    reward = dict(
+        algorithm_specific=dict(
+            airl=dict(
+                net_cls=reward_nets.BasicShapedRewardNet,
+                net_kwargs=dict(
+                    reward_hid_sizes=(32,),
+                    potential_hid_sizes=(32,),
+                ),
+            ),
+        ),
+    )
+    algorithm_kwargs = dict(
+        # Number of discriminator updates after each round of generator updates
+        n_disc_updates_per_round=16,
+        # Equivalent to no replay buffer if batch size is the same
+        gen_replay_buffer_capacity=16384,
+        demo_batch_size=8192,
+    )
 
 
 @train_adversarial_ex.named_config
