@@ -21,7 +21,7 @@ train_adversarial_ex = sacred.Experiment(
 def defaults():
     show_config = False
 
-    total_timesteps = int(5e6)  # Num of environment transitions to sample
+    total_timesteps = int(5e5)  # Num of environment transitions to sample
     algorithm_kwargs = dict(
         demo_batch_size=1024,  # Number of expert samples per discriminator update
         n_disc_updates_per_round=4,  # Num discriminator updates per generator round
@@ -82,6 +82,21 @@ def mountain_car():
 @train_adversarial_ex.named_config
 def seals_mountain_car():
     common = dict(env_name="seals/MountainCar-v0")
+
+
+@train_adversarial_ex.named_config
+def seals_mountain_car_trunc():
+    common = dict(env_name="seals/MountainCar-v0")
+    reward = dict(
+        algorithm_specific=dict(
+            airl=dict(
+                net_cls=reward_nets.BasicShapedRewardNetTruncated,
+                net_kwargs=dict(
+                    target_states=tuple((0,)),
+                )
+            ),
+        ),
+    )
 
 
 @train_adversarial_ex.named_config

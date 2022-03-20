@@ -126,6 +126,8 @@ class RewardNet(nn.Module, abc.ABC):
         Returns:
             Computed rewards of shape `(batch_size,`).
         """
+
+
         with networks.evaluating(self):
             # switch to eval mode (affecting normalization, dropout, etc)
 
@@ -206,6 +208,10 @@ class ShapedRewardNet(RewardNet):
         next_state: th.Tensor,
         done: th.Tensor,
     ):
+        #asdf
+        # state = state[:, 0, None]
+        # next_state = next_state[:, 0, None]
+
         base_reward_net_output = self.base(state, action, next_state, done)
         new_shaping_output = self.potential(next_state).flatten()
         old_shaping_output = self.potential(state).flatten()
@@ -391,6 +397,74 @@ class BasicShapedRewardNet(ShapedRewardNet):
             potential_net,
             discount_factor=discount_factor,
         )
+
+class BasicShapedRewardNetTruncated(BasicShapedRewardNet):
+    """
+    This net allows to truncate the state input that is fed into the descriminator
+    """
+
+    def __init__(
+            self,
+            observation_space: gym.Space,
+            action_space: gym.Space,
+            *,
+            reward_hid_sizes: Sequence[int] = (32,),
+            potential_hid_sizes: Sequence[int] = (32, 32),
+            use_state: bool = True,
+            use_action: bool = True,
+            use_next_state: bool = False,
+            use_done: bool = False,
+            discount_factor: float = 0.99,
+            target_states: Sequence[int] = [0],
+            **kwargs,
+    ):
+        self.target_states = tuple(target_states)
+
+        from gym.spaces import Box
+        import numpy as np
+
+        observation_space_low = np.array([observation_space.low[i] for i in target_states])
+        observation_space_high = np.array([observation_space.high[i] for i in target_states])
+
+        new_observation_space = Box(low=observation_space_low, high=observation_space_high)
+
+
+        super().__init__(
+            observation_space=new_observation_space,
+            action_space=action_space,
+            reward_hid_sizes=reward_hid_sizes,
+            potential_hid_sizes=potential_hid_sizes,
+            use_state=use_state,
+            use_action=use_action,
+            use_next_state=use_next_state,
+            use_done=use_done,
+            discount_factor=discount_factor)
+
+    def forward(
+        self,
+        state: th.Tensor,
+        action: th.Tensor,
+        next_state: th.Tensor,
+        done: th.Tensor,
+    ):
+
+        state = state[:, self.target_states]
+        next_state = next_state[:, self.target_states]
+
+        return super().forward(state, action, next_state, done)
+
+    def predict(
+        self,
+        state: np.ndarray,
+        action: np.ndarray,
+        next_state: np.ndarray,
+        done: np.ndarray,
+    ) -> np.ndarray:
+
+        state = state[:, self.target_states]
+        next_state = next_state[:, self.target_states]
+
+        return super().predict(state, action, next_state, done)
 
 
 class BasicPotentialMLP(nn.Module):

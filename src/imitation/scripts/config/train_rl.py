@@ -90,7 +90,7 @@ def mountain_car():
 @train_rl_ex.named_config
 def seals_mountain_car():
     common = dict(env_name="seals/MountainCar-v0")
-    total_timesteps = int(1e6)
+    total_timesteps = int(2e5)
     rl = dict(batch_size=2048,
               rl_kwargs=
               dict(
