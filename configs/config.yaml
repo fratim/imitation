@@ -1,9 +1,12 @@
 
 defaults:
     - env: seals_mountain_car_org
+    - demonstrator: seals_mountain_car_seed_one
     - sacred: standard
     - seed: one
     - override /hydra/launcher: submitit_slurm
+
+
 
 hydra:
     launcher:

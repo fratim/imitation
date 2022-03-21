@@ -25,7 +25,7 @@ train_adversarial:
         common:
             log_dir: logss/
         demonstrations:
-            rollout_path: logss/rollouts/final.pkl
+            rollout_path: /work/frtim/clean_airl_runs/${demonstrator.name}/logss/rollouts/final.pkl
         seed: ${seed.value}
 
 eval_irl_policy:
