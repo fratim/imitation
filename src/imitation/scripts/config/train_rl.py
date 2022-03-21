@@ -69,9 +69,23 @@ def half_cheetah():
     common = dict(env_name="HalfCheetah-v2")
     total_timesteps = int(5e6)  # does OK after 1e6, but continues improving
 
+@train_rl_ex.named_config
+def seals_half_cheetah():
+    common = dict(env_name="seals/HalfCheetah-v0")
+    total_timesteps = int(5e6)  # does OK after 1e6, but continues improving
+
+@train_rl_ex.named_config
+def seals_half_cheetah_trunc():
+    common = dict(env_name="seals/HalfCheetah-v0")
+    total_timesteps = int(5e6)  # does OK after 1e6, but continues improving
+
 
 @train_rl_ex.named_config
 def seals_hopper():
+    common = dict(env_name="seals/Hopper-v0")
+
+@train_rl_ex.named_config
+def seals_hopper_trunc():
     common = dict(env_name="seals/Hopper-v0")
 
 
@@ -86,9 +100,27 @@ def seals_humanoid():
 def mountain_car():
     common = dict(env_name="MountainCar-v0")
 
+@train_rl_ex.named_config
+def mountain_car_trunc():
+    common = dict(env_name="MountainCar-v0")
+
 
 @train_rl_ex.named_config
 def seals_mountain_car():
+    common = dict(env_name="seals/MountainCar-v0")
+    total_timesteps = int(2e5)
+    rl = dict(batch_size=2048,
+              rl_kwargs=
+              dict(
+                  learning_rate=3e-4,
+                  batch_size=64,
+                  n_epochs=10,
+                  ent_coef=0.0,
+              )
+              )
+
+@train_rl_ex.named_config
+def seals_mountain_car_trunc():
     common = dict(env_name="seals/MountainCar-v0")
     total_timesteps = int(2e5)
     rl = dict(batch_size=2048,
@@ -148,6 +180,10 @@ def seals_swimmer():
 
 @train_rl_ex.named_config
 def seals_walker():
+    common = dict(env_name="seals/Walker2d-v0")
+
+@train_rl_ex.named_config
+def seals_walker_trunc():
     common = dict(env_name="seals/Walker2d-v0")
 
 
