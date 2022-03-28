@@ -112,6 +112,12 @@ def seals_mountain_car_trunc():
                     target_states=tuple((0,)),
                 )
             ),
+            gail=dict(
+                net_cls=reward_nets.BasicRewardNetTruncated,
+                net_kwargs=dict(
+                    target_states=tuple((0,)),
+                )
+            ),
         ),
     )
 
@@ -265,6 +271,12 @@ def seals_hopper_trunc():
                     target_states=tuple((0, 1, 2)),
                 ),
             ),
+            gail=dict(
+                net_cls=reward_nets.BasicRewardNetTruncated,
+                net_kwargs=dict(
+                    target_states=tuple((0, 1, 2)),
+                ),
+            ),
         ),
     )
     algorithm_kwargs = dict(
@@ -363,6 +375,12 @@ def seals_walker_trunc():
                     reward_hid_sizes=(32,),
                     potential_hid_sizes=(32,),
                     target_states=tuple((0, 1, 2))
+                ),
+            ),
+            gail=dict(
+                net_cls=reward_nets.BasicRewardNetTruncated,
+                net_kwargs=dict(
+                    target_states=tuple((0, 1, 2)),
                 ),
             ),
         ),

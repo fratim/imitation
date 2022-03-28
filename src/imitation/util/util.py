@@ -23,7 +23,7 @@ import torch as th
 from gym.wrappers import TimeLimit
 from stable_baselines3.common import monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
-
+from omegaconf import OmegaConf
 
 def make_unique_timestamp() -> str:
     """Timestamp, with random uuid added to avoid collisions."""
@@ -188,3 +188,14 @@ def tensor_iter_norm(
     # = sum(x**ord for x in tensor for tensor in tensor_iter)**(1/ord)
     # = th.norm(concatenated tensors)
     return th.norm(norm_tensor, p=ord)
+
+
+def hydra_to_sacred(input):
+    input_transformed = dict()
+    input_transformed["named_configs"] = OmegaConf.to_object(input["named_configs"])
+    input_transformed["config_updates"] = OmegaConf.to_object(input["config_updates"])
+
+    if "command_name" in input.keys():
+        input_transformed["command_name"] = str(input["command_name"])
+
+    return input_transformed

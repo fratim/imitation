@@ -1,11 +1,11 @@
 import hydra
 
-from utils import hydra_to_sacred
+from imitation.util.util import hydra_to_sacred
 
 from imitation.scripts import train_rl, eval_policy
 
 
-@hydra.main(config_path="../configs/", config_name="config.yaml")
+@hydra.main(config_path="configs/", config_name="config.yaml")
 def main(config):
     # run training of RL policy
     train_rl.main_console(hydra_to_sacred(config.sacred["train_rl"]))

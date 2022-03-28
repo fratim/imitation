@@ -271,6 +271,7 @@ class BasicRewardNet(RewardNet):
             use_done: should the "done" flag be included as an input to the MLP?
             kwargs: passed straight through to `build_mlp`.
         """
+
         super().__init__(observation_space, action_space)
         combined_size = 0
 
@@ -322,6 +323,69 @@ class BasicRewardNet(RewardNet):
         assert outputs.shape == state.shape[:1]
 
         return outputs
+
+
+class BasicRewardNetTruncated(BasicRewardNet):
+    """
+    This net allows to truncate the state input that is fed into the descriminator
+    """
+
+    def __init__(
+            self,
+            observation_space: gym.Space,
+            action_space: gym.Space,
+            use_state: bool = True,
+            use_action: bool = True,
+            use_next_state: bool = False,
+            use_done: bool = False,
+            target_states: Sequence[int] = [0],
+            **kwargs,
+    ):
+        self.target_states = tuple(target_states)
+
+        from gym.spaces import Box
+        import numpy as np
+
+        observation_space_low = np.array([observation_space.low[i] for i in target_states])
+        observation_space_high = np.array([observation_space.high[i] for i in target_states])
+
+        new_observation_space = Box(low=observation_space_low, high=observation_space_high)
+
+
+        super().__init__(
+            observation_space=new_observation_space,
+            action_space=action_space,
+            use_state=use_state,
+            use_action=use_action,
+            use_next_state=use_next_state,
+            use_done=use_done,
+        )
+
+    def forward(
+        self,
+        state: th.Tensor,
+        action: th.Tensor,
+        next_state: th.Tensor,
+        done: th.Tensor,
+    ):
+
+        state = state[:, self.target_states]
+        next_state = next_state[:, self.target_states]
+
+        return super().forward(state, action, next_state, done)
+
+    def predict(
+        self,
+        state: np.ndarray,
+        action: np.ndarray,
+        next_state: np.ndarray,
+        done: np.ndarray,
+    ) -> np.ndarray:
+
+        state = state[:, self.target_states]
+        next_state = next_state[:, self.target_states]
+
+        return super().predict(state, action, next_state, done)
 
 
 class BasicShapedRewardNet(ShapedRewardNet):

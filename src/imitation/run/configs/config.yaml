@@ -1,17 +1,18 @@
 
 defaults:
+    - state_only: "yes"
+    - run_test: "no"
+    - irl_algo: gail
     - env: seals_mountain_car_org
     - demonstrator: seals_mountain_car_seed_one
     - sacred: standard
     - seed: one
     - override /hydra/launcher: submitit_slurm
 
-
-
 hydra:
     launcher:
         submitit_folder: logs/multiruns/.submitit/%j
-        timeout_min: 600
+        timeout_min: 90
         cpus_per_task: 8
         gpus_per_node: 1
         tasks_per_node: 1
@@ -38,6 +39,6 @@ job_id: ${hydra.job.num}
 
 
 
-
-
+#python run.py env=seals_hopper_trunc demonstrator=seals_hopper_seed_five,seals_hopper_seed_three  seed=one,two,three
+#python -m imitation.run.run_irl env=seals_hopper_trunc demonstrator=seals_walker_seed_one sacred=test
 

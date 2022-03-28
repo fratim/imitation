@@ -498,30 +498,49 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         assert n_gen == len(gen_samples["acts"])
         assert n_gen == len(gen_samples["next_obs"])
 
+
         # Concatenate rollouts, and label each row as expert or generator.
-        obs = np.concatenate([expert_samples["obs"], gen_samples["obs"]])
-        acts = np.concatenate([expert_samples["acts"], gen_samples["acts"]])
-        next_obs = np.concatenate([expert_samples["next_obs"], gen_samples["next_obs"]])
+        import pdb
+        pdb.set_trace()
+
+        # how to treat actions? yet to be solved
+        if hasattr(self._reward_net, "target_states"):
+            import pdb
+            pdb.set_trace()
+
+            target_states = self._reward_net.target_states
+            obs = np.concatenate([expert_samples["obs"][:, target_states], expert_samples["obs"][:, target_states]])
+            acts = np.concatenate([expert_samples["acts"][:, (0, )], gen_samples["acts"][:, (0, )]])
+            next_obs = np.concatenate([expert_samples["next_obs"][:, target_states], gen_samples["next_obs"][:, target_states]])
+        else:
+            obs = np.concatenate([expert_samples["obs"], expert_samples["obs"]])
+            acts = np.concatenate([expert_samples["acts"], gen_samples["acts"]])
+            next_obs = np.concatenate([expert_samples["next_obs"], gen_samples["next_obs"]])
+
+
         dones = np.concatenate([expert_samples["dones"], gen_samples["dones"]])
         labels_gen_is_one = np.concatenate(
             [np.zeros(n_expert, dtype=int), np.ones(n_gen, dtype=int)],
         )
 
-        # Calculate generator-policy log probabilities.
-        with th.no_grad():
-            obs_th = th.as_tensor(obs, device=self.gen_algo.device)
-            acts_th = th.as_tensor(acts, device=self.gen_algo.device)
-            log_act_prob = None
-            if hasattr(self.gen_algo.policy, "evaluate_actions"):
-                _, log_act_prob_th, _ = self.gen_algo.policy.evaluate_actions(
-                    obs_th,
-                    acts_th,
-                )
-                log_act_prob = log_act_prob_th.detach().cpu().numpy()
-                del log_act_prob_th  # unneeded
-                assert len(log_act_prob) == n_samples
-                log_act_prob = log_act_prob.reshape((n_samples,))
-            del obs_th, acts_th  # unneeded
+        # Problem: the action probabilities cannot be evaluated here for the demonstrator, as we do
+        # not assume access to the demonstrator's policy to be given
+
+        # Calculate generator-policy log probabilities.State-Only Imitation Learning for Dexterous Manipulation
+        # with th.no_grad():
+        #     obs_th = th.as_tensor(obs, device=self.gen_algo.device)
+        #     acts_th = th.as_tensor(acts, device=self.gen_algo.device)
+        #     log_act_prob = None
+        #     if hasattr(self.gen_algo.policy, "evaluate_actions"):
+        #         _, log_act_prob_th, _ = self.gen_algo.policy.evaluate_actions(
+        #             obs_th,
+        #             acts_th,
+        #         )
+        #         log_act_prob = log_act_prob_th.detach().cpu().numpy()
+        #         del log_act_prob_th  # unneeded
+        #         assert len(log_act_prob) == n_samples
+        #         log_act_prob = log_act_prob.reshape((n_samples,))
+        #     del obs_th, acts_th  # unneeded
 
         obs_th, acts_th, next_obs_th, dones_th = self.reward_train.preprocess(
             obs,
@@ -535,7 +554,8 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             "next_state": next_obs_th,
             "done": dones_th,
             "labels_gen_is_one": self._torchify_array(labels_gen_is_one),
-            "log_policy_act_prob": self._torchify_array(log_act_prob),
+            # "log_policy_act_prob": self._torchify_array(log_act_prob),
+            "log_policy_act_prob": None,
         }
 
         return batch_dict

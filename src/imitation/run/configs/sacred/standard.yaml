@@ -1,7 +1,5 @@
 train_rl:
-    named_configs:
-        - ${env.name}
-        - test
+    named_configs: ${run_test.train_rl.named_configs}
     config_updates:
         common:
             log_dir: logss/
@@ -17,16 +15,21 @@ eval_rl_policy:
         seed: ${seed.value}
 
 train_adversarial:
-    command_name: "airl"
-    named_configs:
-        - ${env.name}
-        - test
+    command_name: ${irl_algo.name}
+    named_configs: ${run_test.train_adversarial.named_configs}
     config_updates:
         common:
             log_dir: logss/
         demonstrations:
-            rollout_path: /work/frtim/clean_airl_runs/${demonstrator.name}/logss/rollouts/final.pkl
+            rollout_path: /work/frtim/airl_saved/rl_demos/${demonstrator.name}/logss/rollouts/final.pkl
         seed: ${seed.value}
+        reward:
+            algorithm_specific:
+                gail:
+                    net_kwargs:
+                        use_state: ${state_only.use_state}
+                        use_action: ${state_only.use_action}
+                        use_next_state: ${state_only.use_next_state}
 
 eval_irl_policy:
     named_configs:

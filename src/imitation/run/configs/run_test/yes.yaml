@@ -1,0 +1,8 @@
+train_rl:
+    named_configs:
+        - ${env.name}
+        - test
+train_adversarial:
+    named_configs:
+        - ${env.name}
+        - test

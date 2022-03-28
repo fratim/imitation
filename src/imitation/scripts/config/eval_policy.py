@@ -59,9 +59,16 @@ def seals_cartpole():
 def half_cheetah():
     common = dict(env_name="HalfCheetah-v2", num_vec=1, parallel=False)
 
+@eval_policy_ex.named_config
+def half_cheetah_trunc():
+    common = dict(env_name="HalfCheetah-v2", num_vec=1, parallel=False)
 
 @eval_policy_ex.named_config
 def seals_hopper():
+    common = dict(env_name="seals/Hopper-v0", num_vec=1, parallel=False)
+
+@eval_policy_ex.named_config
+def seals_hopper_trunc():
     common = dict(env_name="seals/Hopper-v0", num_vec=1, parallel=False)
 
 
@@ -76,7 +83,18 @@ def mountain_car():
 
 
 @eval_policy_ex.named_config
+def mountain_car_trunc():
+    common = dict(env_name="MountainCar-v0", num_vec=1, parallel=False)
+
+
+@eval_policy_ex.named_config
 def seals_mountain_car():
+    eval_n_timesteps = int(200)
+    eval_n_episodes = 1
+    common = dict(env_name="seals/MountainCar-v0", num_vec=1, parallel=False)
+
+@eval_policy_ex.named_config
+def seals_mountain_car_trunc():
     eval_n_timesteps = int(200)
     eval_n_episodes = 1
     common = dict(env_name="seals/MountainCar-v0", num_vec=1, parallel=False)
@@ -108,6 +126,9 @@ def seals_swimmer():
 def seals_walker():
     common = dict(env_name="seals/Walker2d-v0", num_vec=1, parallel=False)
 
+@eval_policy_ex.named_config
+def seals_walker_trunc():
+    common = dict(env_name="seals/Walker2d-v0", num_vec=1, parallel=False)
 
 @eval_policy_ex.named_config
 def fast():
