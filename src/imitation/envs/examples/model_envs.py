@@ -230,9 +230,9 @@ class CliffWorld(TabularModelEnv):
     ):
         """Builds CliffWorld with specified dimensions and reward."""
         super().__init__()
-        assert (
-            width >= 3 and height >= 2
-        ), "degenerate grid world requested; is this a bug?"
+        # assert (
+        #     width >= 3 and height >= 2
+        # ), "degenerate grid world requested; is this a bug?"
         self.width = width
         self.height = height
         succ_p = 1 - fail_p
@@ -332,6 +332,49 @@ class CliffWorld(TabularModelEnv):
         plt.imshow(grid)
         plt.gca().grid(False)
 
+class GridWorld(CliffWorld):
+    def __init__(
+            self,
+            *,
+            width: int,
+            height: int,
+            horizon: int,
+            use_xy_obs: bool,
+            rew_default: int = -1,
+            rew_goal: int = 10,
+            rew_cliff: int = -10,
+            fail_p: float = 0.3,
+    ):
+        super().__init__(
+            width=width,
+            height=height,
+            horizon=horizon,
+            use_xy_obs=use_xy_obs,
+            rew_default=rew_default,
+            rew_goal=rew_goal,
+            rew_cliff=rew_cliff,
+            fail_p=fail_p
+            )
+
+        def to_id_clamp(row, col):
+            """Convert (x,y) state to state ID, after clamp x & y to lie in grid."""
+            row = min(max(row, 0), height - 1)
+            col = min(max(col, 0), width - 1)
+            state_id = row * width + col
+            assert 0 <= state_id < self.n_states
+            return state_id
+
+        for row in range(self.height):
+            for col in range(self.width):
+                state_id = to_id_clamp(row, col)
+
+                # start by computing reward
+                if col == width - 1:
+                    r = rew_goal  # goal
+                else:
+                    r = rew_default  # blank
+
+                self._reward_matrix[state_id] = r
 
 def register_cliff(suffix, kwargs):
     gym.register(
@@ -340,11 +383,28 @@ def register_cliff(suffix, kwargs):
         kwargs=kwargs,
     )
 
+def register_grid(suffix, kwargs):
+    gym.register(
+        f"imitation/GridWorld{suffix}-v0",
+        entry_point="imitation.envs.examples.model_envs:GridWorld",
+        kwargs=kwargs,
+    )
 
-for width, height, horizon in [(7, 4, 9), (15, 6, 18), (100, 20, 110)]:
+
+for width, height, horizon in [(7, 1, 9), (7, 4, 9), (15, 6, 18), (100, 20, 110)]:
     for use_xy in [False, True]:
         use_xy_str = "XY" if use_xy else ""
         register_cliff(
+            f"{width}x{height}{use_xy_str}",
+            kwargs={
+                "width": width,
+                "height": height,
+                "use_xy_obs": use_xy,
+                "horizon": horizon,
+            },
+        )
+
+        register_grid(
             f"{width}x{height}{use_xy_str}",
             kwargs={
                 "width": width,
@@ -369,3 +429,12 @@ gym.register(
         "generator_seed": 42,
     },
 )
+
+
+def to_id_clamp(row, col):
+    """Convert (x,y) state to state ID, after clamp x & y to lie in grid."""
+    row = min(max(row, 0), height - 1)
+    col = min(max(col, 0), width - 1)
+    state_id = row * width + col
+    assert 0 <= state_id < self.n_states
+    return state_id

@@ -41,7 +41,7 @@ def path_to_str(path: AnyPath) -> str:
         return str(path)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=False)
 class Trajectory:
     """A trajectory, e.g. a one episode rollout from an expert policy."""
 
@@ -101,7 +101,7 @@ def _rews_validation(rews: np.ndarray, acts: np.ndarray):
         raise ValueError(f"rewards dtype {rews.dtype} not a float")
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=False)
 class TrajectoryWithRew(Trajectory):
     """A `Trajectory` that additionally includes reward information."""
 

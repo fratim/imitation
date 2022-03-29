@@ -14,6 +14,7 @@ import numpy as np
 import scipy.special
 import torch as th
 from stable_baselines3.common import policies
+import matplotlib.pyplot as plt
 
 from imitation.algorithms import base
 from imitation.data import rollout, types
@@ -422,6 +423,29 @@ class MCEIRL(base.DemonstrationAlgorithm[types.TransitionsMinimal]):
             raise TypeError(
                 f"Unsupported demonstration type {type(demonstrations)}",
             )
+
+    def plot_reward_map(self, reward_net, prefix):
+        self.optimizer.zero_grad()
+
+        obs_mat = self.env.observation_matrix
+        torch_obs_mat = th.as_tensor(
+            obs_mat,
+            dtype=self.reward_net.dtype,
+            device=self.reward_net.device,
+        )
+
+        # get reward predicted for each state by current model, & compute
+        # expected # of times each state is visited by soft-optimal policy
+        # w.r.t that reward function
+        # TODO(adam): support not just state-only reward?
+        predicted_r = squeeze_r(reward_net(torch_obs_mat, None, None, None))
+        predicted_r = predicted_r.detach().cpu().numpy()
+        predicted_r = predicted_r.reshape((self.env.height, self.env.width))
+
+        plt.imshow(predicted_r)
+        plt.savefig(f"reward_map_{prefix}.png")
+
+
 
     def _train_step(self, obs_mat: th.Tensor):
         self.optimizer.zero_grad()
