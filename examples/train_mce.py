@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
 
 from imitation.algorithms.mce_irl import (
     MCEIRL,
@@ -105,6 +107,48 @@ def irl_from_trajs(expert_trajs, env, env_reduced, state_venv_reduced):
     mce_irl_from_trajs, reward_net = train_mce_irl(expert_trajs_passed, env_reduced, state_venv_reduced)
     mce_irl_from_trajs.plot_reward_map(reward_net, "trajs")
 
+def get_relevant_dim():
+    env, env_reduced, state_venv, state_venv_reduced = make_envs()
+
+    _, _, pi_exp = mce_partition_fh(env, policy_temp=1)
+    expert_trajs = gen_expert_trajs(env, pi_exp, state_venv)
+
+    _, _, pi_rand = mce_partition_fh(env, policy_temp=100000000)
+    rand_trajs = gen_expert_trajs(env, pi_rand, state_venv)
+
+    X = []
+    y = []
+
+    # append dxpert trajectories with y label 1
+    for traj in expert_trajs:
+        for transition in traj.infos:
+            X.append(list((transition["old_state"] % 7, transition["new_state"] % 7, transition["old_state"] // 7, transition["new_state"] // 7)))
+            y.append(list((1,)))
+
+    # append random trajectories with y label 0
+    for traj in rand_trajs:
+        for transition in traj.infos:
+            X.append(list((transition["old_state"] % 7, transition["new_state"] % 7, transition["old_state"] // 7, transition["new_state"] // 7)))
+            y.append(list((0,)))
+
+    X = np.array(X)
+    y = np.array(y)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.33, random_state = 42)
+
+    # both row and col coordinate
+    clf = LogisticRegression(random_state=0, solver="liblinear", penalty="l1").fit(X_train, y_train)
+    print(f"Test classification score both: {clf.score(X_test, y_test)}")
+
+    # col only
+    clf = LogisticRegression(random_state=0, solver="liblinear", penalty="l1").fit(X_train[:, :2], y_train)
+    print(f"Test classification col only: {clf.score(X_test[:, :2], y_test)}")
+
+    # row only
+    clf = LogisticRegression(random_state=0, solver="liblinear", penalty="l1").fit(X_train[:, 2:], y_train)
+    print(f"Test classification row only: {clf.score(X_test[:, 2:], y_test)}")
+
+    print("paused")
 
 def main():
 
@@ -126,5 +170,6 @@ def plot_om(om, id):
     plt.savefig(f"om_{id}.png")
 
 if __name__ == "__main__":
-    main()
+    get_relevant_dim()
+    # main()
 

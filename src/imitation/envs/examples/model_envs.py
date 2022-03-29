@@ -314,8 +314,10 @@ class CliffWorld(TabularModelEnv):
     @property
     def initial_state_dist(self):
         # always start in s0
-        rv = np.zeros((self.n_states,))
-        rv[0] = 1.0
+        rv = np.ones((self.n_states,))/self.n_states
+        # rv[0] = 1.0
+        # rv[7] = 1.0
+        # rv[14] = 1.0
         return rv
 
     def draw_value_vec(self, D) -> None:
