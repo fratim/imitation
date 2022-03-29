@@ -67,16 +67,7 @@ def make_envs():
 
     return env, env_reduced, state_venv, state_venv_reduced
 
-def main():
-
-    env, env_reduced, state_venv, state_venv_reduced = make_envs()
-
-    _, _, pi = mce_partition_fh(env, policy_temp=7)
-
-    _, om = mce_occupancy_measures(env, pi=pi)
-
-    plot_om(om.reshape(env.height, env.width), "occupancy")
-
+def gen_expert_trajs(env, pi, state_venv):
     expert = TabularPolicy(
         state_space=env.pomdp_state_space,
         action_space=env.action_space,
@@ -92,12 +83,16 @@ def main():
 
     print("Expert stats: ", rollout.rollout_stats(expert_trajs))
 
+    return expert_trajs
+
+def irl_from_occupancy_measure(om, env, env_reduced, state_venv_reduced):
     ################ LEARN FROM OCCUPANCY MEASURE ##########################
     om = om.reshape(env.height, env.width)
     om_reduced = np.mean(om, axis=0)
     mce_irl_from_om, reward_net = train_mce_irl(om_reduced, env_reduced, state_venv_reduced)
     mce_irl_from_om.plot_reward_map(reward_net, "om")
 
+def irl_from_trajs(expert_trajs, env, env_reduced, state_venv_reduced):
     ################## LEARN FROM TRAJECTORIES ##############################
     if EXPERT_TRAJS != "all":
         expert_trajs_passed = expert_trajs[0:EXPERT_TRAJS]
@@ -109,6 +104,22 @@ def main():
 
     mce_irl_from_trajs, reward_net = train_mce_irl(expert_trajs_passed, env_reduced, state_venv_reduced)
     mce_irl_from_trajs.plot_reward_map(reward_net, "trajs")
+
+
+def main():
+
+    env, env_reduced, state_venv, state_venv_reduced = make_envs()
+
+    _, _, pi = mce_partition_fh(env, policy_temp=7)
+
+    _, om = mce_occupancy_measures(env, pi=pi)
+    # plot_om(om.reshape(env.height, env.width), "occupancy")
+
+    expert_trajs = gen_expert_trajs(env, pi, state_venv)
+
+    irl_from_occupancy_measure(om, env, env_reduced, state_venv_reduced)
+
+    irl_from_trajs(expert_trajs, env, env_reduced, state_venv_reduced)
 
 def plot_om(om, id):
     plt.imshow(om)
