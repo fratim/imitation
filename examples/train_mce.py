@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 
 from imitation.algorithms.mce_irl import (
     MCEIRL,
@@ -70,9 +71,11 @@ def main():
 
     env, env_reduced, state_venv, state_venv_reduced = make_envs()
 
-    _, _, pi = mce_partition_fh(env)
+    _, _, pi = mce_partition_fh(env, policy_temp=7)
 
     _, om = mce_occupancy_measures(env, pi=pi)
+
+    plot_om(om.reshape(env.height, env.width), "occupancy")
 
     expert = TabularPolicy(
         state_space=env.pomdp_state_space,
@@ -107,6 +110,9 @@ def main():
     mce_irl_from_trajs, reward_net = train_mce_irl(expert_trajs_passed, env_reduced, state_venv_reduced)
     mce_irl_from_trajs.plot_reward_map(reward_net, "trajs")
 
+def plot_om(om, id):
+    plt.imshow(om)
+    plt.savefig(f"om_{id}.png")
 
 if __name__ == "__main__":
     main()

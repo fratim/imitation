@@ -29,6 +29,7 @@ def mce_partition_fh(
     *,
     reward: Optional[np.ndarray] = None,
     discount: float = 1.0,
+    policy_temp: float = 1.0,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     r"""Performs the soft Bellman backup for a finite-horizon MDP.
 
@@ -65,6 +66,7 @@ def mce_partition_fh(
     Q[horizon - 1, :, :] = broad_R
     # V(s) is always normalising constant
     V[horizon - 1, :] = scipy.special.logsumexp(Q[horizon - 1, :, :], axis=1)
+    # TODO: Is this correct? Given that we assume a fixed horizon, the reward can technically be collected multiple times
 
     # Recursive case
     for t in reversed(range(horizon - 1)):
@@ -72,7 +74,9 @@ def mce_partition_fh(
         Q[t, :, :] = broad_R + discount * next_values_s_a
         V[t, :] = scipy.special.logsumexp(Q[t, :, :], axis=1)
 
-    pi = np.exp(Q - V[:, :, None])
+    advantage = Q - V[:, :, None]
+    pi = np.exp(1/policy_temp * advantage) # compute policy using temerature
+    pi = pi/pi.sum(axis=2)[:, :, None] # normalize probabilities
 
     return V, Q, pi
 
