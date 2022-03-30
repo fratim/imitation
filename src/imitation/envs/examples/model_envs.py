@@ -50,7 +50,7 @@ class CliffWorld(TabularModelEnv):
         self.width = width
         self.height = height
 
-        self.object_positions = [[3, 6], [1, 2]]
+        self.object_positions = [[1, 2], [3, 3]]
         self.n_objects = len(self.object_positions)
 
         succ_p = 1 - fail_p
@@ -82,6 +82,8 @@ class CliffWorld(TabularModelEnv):
 
                     # start by computing reward
                     if obj != 0 and [row, col] == self.object_positions[obj-1]:
+                        R_vec[state_id] = 10
+                    elif obj != 0 and (self.height == self.width == 1):
                         R_vec[state_id] = 10
                     else:
                         R_vec[state_id] = -1
@@ -120,12 +122,25 @@ class CliffWorld(TabularModelEnv):
                             T_mat[state_id, action_id, target_state] += 1
                         elif obj == 0 and ([row, col] == self.object_positions[toggle - 1]): # correct position to toggle object
                             T_mat[state_id, action_id, target_state] += 1
+                        elif obj == 0 and (self.width == self.height == 1): # if environment is reduced, toggle must be possible in (0,0) coordinate
+                            T_mat[state_id, action_id, target_state] += 1
                         else: # not in correct position to toggle object so nothing happens
                             T_mat[state_id, action_id, state_id] += 1
 
         assert np.allclose(np.sum(T_mat, axis=-1), 1, rtol=1e-5), (
             "un-normalised matrix %s" % O_mat
         )
+
+    def to_coord(self, state_id):
+        """Convert id to (x,y,level)"""
+        assert 0 <= state_id < self.n_states
+        level = state_id // (self.width * self.height)
+
+        grid_id = state_id % (self.width * self.height)
+        col = grid_id % self.width
+        row = grid_id // self.width
+
+        return (row, col, level)
 
     @property
     def observation_matrix(self):
@@ -223,7 +238,7 @@ def register_grid(suffix, kwargs):
     )
 
 
-for width, height, horizon in [(7, 1, 9), (7, 4, 9), (15, 6, 18), (100, 20, 110)]:
+for width, height, horizon in [(1, 1, 9), (7, 1, 9), (7, 4, 9), (15, 6, 18), (100, 20, 110)]:
     for use_xy in [False, True]:
         use_xy_str = "XY" if use_xy else ""
         register_cliff(
