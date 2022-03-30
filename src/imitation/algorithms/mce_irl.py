@@ -444,7 +444,7 @@ class MCEIRL(base.DemonstrationAlgorithm[types.TransitionsMinimal]):
         # TODO(adam): support not just state-only reward?
         predicted_r = squeeze_r(reward_net(torch_obs_mat, None, None, None))
         predicted_r = predicted_r.detach().cpu().numpy()
-        predicted_r = predicted_r.reshape((self.env.height, self.env.width))
+        # predicted_r = predicted_r.reshape((self.env.height, self.env.width))
 
         plt.imshow(predicted_r)
         plt.savefig(f"reward_map_{prefix}.png")

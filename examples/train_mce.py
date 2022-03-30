@@ -87,25 +87,14 @@ def gen_expert_trajs(env, pi, state_venv):
 
     return expert_trajs
 
-def irl_from_occupancy_measure(om, env, env_reduced, state_venv_reduced):
+def irl_from_occupancy_measure(om, env, state_venv):
     ################ LEARN FROM OCCUPANCY MEASURE ##########################
-    om = om.reshape(env.height, env.width)
-    om_reduced = np.mean(om, axis=0)
-    mce_irl_from_om, reward_net = train_mce_irl(om_reduced, env_reduced, state_venv_reduced)
-    mce_irl_from_om.plot_reward_map(reward_net, "om")
+    mce_irl_from_om, reward_net = train_mce_irl(om, env, state_venv)
+    # mce_irl_from_om.plot_reward_map(reward_net, "om")
 
-def irl_from_trajs(expert_trajs, env, env_reduced, state_venv_reduced):
-    ################## LEARN FROM TRAJECTORIES ##############################
-    if EXPERT_TRAJS != "all":
-        expert_trajs_passed = expert_trajs[0:EXPERT_TRAJS]
-    else:
-        expert_trajs_passed = expert_trajs
-
-    for traj in expert_trajs_passed:
-        traj.obs = [elem % env.width for elem in traj.obs]
-
-    mce_irl_from_trajs, reward_net = train_mce_irl(expert_trajs_passed, env_reduced, state_venv_reduced)
-    mce_irl_from_trajs.plot_reward_map(reward_net, "trajs")
+def irl_from_trajs(expert_trajs, env, state_venv):
+    mce_irl_from_trajs, reward_net = train_mce_irl(expert_trajs, env, state_venv)
+    # mce_irl_from_trajs.plot_reward_map(reward_net, "trajs")
 
 def get_relevant_dim():
     env, env_reduced, state_venv, state_venv_reduced = make_envs()
@@ -134,7 +123,7 @@ def get_relevant_dim():
     X = np.array(X)
     y = np.array(y)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.33, random_state = 42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
     # both row and col coordinate
     clf = LogisticRegression(random_state=0, solver="liblinear", penalty="l1").fit(X_train, y_train)
@@ -148,8 +137,6 @@ def get_relevant_dim():
     clf = LogisticRegression(random_state=0, solver="liblinear", penalty="l1").fit(X_train[:, 2:], y_train)
     print(f"Test classification row only: {clf.score(X_test[:, 2:], y_test)}")
 
-    print("paused")
-
 def main():
 
     env, env_reduced, state_venv, state_venv_reduced = make_envs()
@@ -157,19 +144,33 @@ def main():
     _, _, pi = mce_partition_fh(env, policy_temp=7)
 
     _, om = mce_occupancy_measures(env, pi=pi)
-    # plot_om(om.reshape(env.height, env.width), "occupancy")
+    plot_om(om[:28].reshape(env.height, env.width), "occupancy")
 
     expert_trajs = gen_expert_trajs(env, pi, state_venv)
 
-    irl_from_occupancy_measure(om, env, env_reduced, state_venv_reduced)
+    ################## LEARN FROM OCCUPANCY MEASURE ##############################
 
-    irl_from_trajs(expert_trajs, env, env_reduced, state_venv_reduced)
+    # om = om.reshape(env.height, env.width)
+    # om_reduced = np.mean(om, axis=0)
+
+    irl_from_occupancy_measure(om, env, state_venv)
+
+    ################## LEARN FROM TRAJECTORIES ##############################
+    # if EXPERT_TRAJS != "all":
+    #     expert_trajs_passed = expert_trajs[0:EXPERT_TRAJS]
+    # else:
+    #     expert_trajs_passed = expert_trajs
+    #
+    # for traj in expert_trajs_passed:
+    #     traj.obs = [elem % env.width for elem in traj.obs]
+
+    irl_from_trajs(expert_trajs, env, state_venv)
 
 def plot_om(om, id):
     plt.imshow(om)
     plt.savefig(f"om_{id}.png")
 
 if __name__ == "__main__":
-    get_relevant_dim()
-    # main()
+    # get_relevant_dim()
+    main()
 
