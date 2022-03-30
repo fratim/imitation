@@ -8,27 +8,8 @@ import numpy as np
 from imitation.envs.resettable_env import TabularModelEnv
 
 
-class CliffWorld(TabularModelEnv):
-    """A grid world with a goal next to a cliff the agent may fall into.
-
-    Illustration::
-
-         0 1 2 3 4 5 6 7 8 9
-        +-+-+-+-+-+-+-+-+-+-+  Wind:
-      0 |S|C|C|C|C|C|C|C|C|G|
-        +-+-+-+-+-+-+-+-+-+-+  ^ ^ ^
-      1 | | | | | | | | | | |  | | |
-        +-+-+-+-+-+-+-+-+-+-+
-      2 | | | | | | | | | | |  ^ ^ ^
-        +-+-+-+-+-+-+-+-+-+-+  | | |
-
-    Aim is to get from S to G. The G square has reward +10, the C squares
-    ("cliff") have reward -10, and all other squares have reward -1. Agent can
-    move in all directions (except through walls), but there is 30% chance that
-    they will be blown upwards by one more unit than intended due to wind.
-    Optimal policy is to go out a bit and avoid the cliff, but still hit goal
-    eventually.
-    """
+class GridWorld(TabularModelEnv):
+    """A gridworld with objects"""
 
     def __init__(
         self,
@@ -36,100 +17,103 @@ class CliffWorld(TabularModelEnv):
         width: int,
         height: int,
         horizon: int,
-        use_xy_obs: bool,
         rew_default: int = -1,
         rew_goal: int = 10,
-        rew_cliff: int = -10,
-        fail_p: float = 0,
+        n_objects: int = 0,
+        reduce_rows: bool = False,
+        reduce_cols: bool = False,
     ):
-        """Builds CliffWorld with specified dimensions and reward."""
         super().__init__()
-        # assert (
-        #     width >= 3 and height >= 2
-        # ), "degenerate grid world requested; is this a bug?"
-        self.width = width
-        self.height = height
 
-        self.object_positions = [[1, 2], [3, 3]]
-        self.n_objects = len(self.object_positions)
+        self.n_objects = n_objects
+        self.n_levels = self.n_objects + 1
+        self.reduce_rows = reduce_rows
+        self.reduce_cols = reduce_cols
 
-        succ_p = 1 - fail_p
+        self.width = width if not self.reduce_cols else 1
+        self.height = height if not self.reduce_rows else 1
 
-        n_states = width * height * (self.n_objects + 1)
-        O_mat = self._observation_matrix = np.zeros(
-            (n_states, 2 if use_xy_obs else n_states),
-            dtype=np.float32,
-        )
+        self.reward_goal = rew_goal
+        self.reward_default = rew_default
 
-        n_actions = 4 + self.n_objects + 1
+        object_positions = [[1, 2], [3, 3], [1, 6]]
+        for obj in object_positions:
+            if self.reduce_rows:
+                obj[0] = 0
+            if self.reduce_cols:
+                obj[1] = 0
+
+        if self.n_objects == 0:
+            self.object_positions = []
+        else:
+            self.object_positions = object_positions[:self.n_objects]
+
+        n_states = self.width * self.height * self.n_levels
+        O_mat = self._observation_matrix = np.zeros((n_states, n_states), dtype=np.float32)
+
+        n_actions = 4 + self.n_levels
 
         R_vec = self._reward_matrix = np.zeros((n_states,))
         T_mat = self._transition_matrix = np.zeros((n_states, n_actions, n_states))
         self._horizon = horizon
 
-        def to_id_clamp(row, col, obj_level):
-            """Convert (x,y) state to state ID, after clamp x & y to lie in grid."""
-            row = min(max(row, 0), height - 1)
-            col = min(max(col, 0), width - 1)
-            state_id = obj_level * (width * height) + row * width + col
-            assert 0 <= state_id < self.n_states
-            return state_id
-
-        for row in range(height):
-            for col in range(width):
-                for obj in range(self.n_objects + 1):
-                    state_id = to_id_clamp(row, col, obj)
+        for row in range(self.height):
+            for col in range(self.width):
+                for level in range(self.n_levels):
+                    state_id = self.to_id_clamp(row, col, level)
 
                     # start by computing reward
-                    if obj != 0 and [row, col] == self.object_positions[obj-1]:
-                        R_vec[state_id] = 10
-                    elif obj != 0 and (self.height == self.width == 1):
-                        R_vec[state_id] = 10
-                    else:
-                        R_vec[state_id] = -1
+                    R_vec[state_id] = self.get_reward(row, col, level)
 
                     # now compute observation
-                    if use_xy_obs:
-                        raise NotImplementedError
-                        # (x, y) coordinate scaled to (0,1)
-                        # O_mat[state_id, :] = [
-                        #     float(col) / (width - 1),
-                        #     float(row) / (height - 1),
-                        #     float(obj) / (self.objects + 1 - 1),
-                        # ]
-                    else:
-                        # our observation matrix is just the identity; observation
-                        # is an indicator vector telling us exactly what state
-                        # we're in
-                        O_mat[state_id, state_id] = 1
+                    O_mat[state_id, state_id] = 1
 
                     # finally, compute transition matrix entries for each of the
-                    # four actions
+                    T_mat = self.set_transition_matrix(row, col, level, state_id, T_mat)
 
-                    for drow in [-1, 1]:
-                        for dcol in [-1, 1]:
-                            action_id = (drow + 1) + (dcol + 1) // 2
-                            if obj == 0:
-                                target_state = to_id_clamp(row + drow, col + dcol, obj)
-                                T_mat[state_id, action_id, target_state] += 1
-                            else:
-                                T_mat[state_id, action_id, state_id] += 1
+        assert np.allclose(np.sum(T_mat, axis=-1), 1, rtol=1e-5)
 
-                    for toggle in range(self.n_objects + 1):
-                        action_id = 4 + toggle
-                        target_state = to_id_clamp(row, col, toggle)
-                        if toggle == 0: # toggling zero always leads back to zero level
-                            T_mat[state_id, action_id, target_state] += 1
-                        elif obj == 0 and ([row, col] == self.object_positions[toggle - 1]): # correct position to toggle object
-                            T_mat[state_id, action_id, target_state] += 1
-                        elif obj == 0 and (self.width == self.height == 1): # if environment is reduced, toggle must be possible in (0,0) coordinate
-                            T_mat[state_id, action_id, target_state] += 1
-                        else: # not in correct position to toggle object so nothing happens
-                            T_mat[state_id, action_id, state_id] += 1
+    def set_transition_matrix(self, row, col, level, state_id, T_mat):
+        for drow in [-1, 1]:
+            for dcol in [-1, 1]:
+                action_id = (drow + 1) + (dcol + 1) // 2
+                if level == 0:
+                    target_state = self.to_id_clamp(row + drow, col + dcol, level)
+                    T_mat[state_id, action_id, target_state] += 1
+                else:
+                    T_mat[state_id, action_id, state_id] += 1
 
-        assert np.allclose(np.sum(T_mat, axis=-1), 1, rtol=1e-5), (
-            "un-normalised matrix %s" % O_mat
-        )
+        for toggle in range(self.n_levels):
+            action_id = 4 + toggle
+            target_state = self.to_id_clamp(row, col, toggle)
+            if toggle == 0:  # toggling zero always leads back to zero level
+                T_mat[state_id, action_id, target_state] += 1
+            elif level == 0 and ([row, col] == self.object_positions[toggle - 1]):  # correct position to toggle object
+                T_mat[state_id, action_id, target_state] += 1
+            else:  # not in correct position to toggle object so nothing happens
+                T_mat[state_id, action_id, state_id] += 1
+
+        return T_mat
+
+    def get_reward(self, row, col, level):
+        # start by computing reward
+        if self.n_objects == 0 and col == (self.width-1):
+            # if no objects are present, goal is to get to the right of plane
+            return self.reward_goal
+        elif level != 0 and [row, col] == self.object_positions[level - 1]:
+            return self.reward_goal
+        else:
+            return self.reward_default
+
+    def to_id_clamp(self, row, col, level):
+        """Convert (x,y) state to state ID, after clamp x & y to lie in grid."""
+        row = min(max(row, 0), self.height - 1)
+        col = min(max(col, 0), self.width - 1)
+        state_id = (self.width * self.height) * level \
+                   + self.width * row \
+                   + col
+        assert 0 <= state_id < self.n_states
+        return state_id
 
     def to_coord(self, state_id):
         """Convert id to (x,y,level)"""
@@ -175,60 +159,12 @@ class CliffWorld(TabularModelEnv):
         """
         import matplotlib.pyplot as plt
 
-        grid = D.reshape(self.height, self.width)
-        plt.imshow(grid)
-        plt.gca().grid(False)
+        grid = D.reshape(self.height, self.width, self.n_levels)
 
-class GridWorld(CliffWorld):
-    def __init__(
-            self,
-            *,
-            width: int,
-            height: int,
-            horizon: int,
-            use_xy_obs: bool,
-            rew_default: int = -1,
-            rew_goal: int = 10,
-            rew_cliff: int = -10,
-            fail_p: float = 0.0,
-    ):
-        super().__init__(
-            width=width,
-            height=height,
-            horizon=horizon,
-            use_xy_obs=use_xy_obs,
-            rew_default=rew_default,
-            rew_goal=rew_goal,
-            rew_cliff=rew_cliff,
-            fail_p=fail_p
-            )
-
-        # def to_id_clamp(row, col):
-        #     """Convert (x,y) state to state ID, after clamp x & y to lie in grid."""
-        #     row = min(max(row, 0), height - 1)
-        #     col = min(max(col, 0), width - 1)
-        #     state_id = row * width + col
-        #     assert 0 <= state_id < self.n_states
-        #     return state_id
-        #
-        # for row in range(self.height):
-        #     for col in range(self.width):
-        #         state_id = to_id_clamp(row, col)
-        #
-        #         # start by computing reward
-        #         if col == width - 1:
-        #             r = rew_goal  # goal
-        #         else:
-        #             r = rew_default  # blank
-        #
-        #         self._reward_matrix[state_id] = r
-
-def register_cliff(suffix, kwargs):
-    gym.register(
-        f"imitation/CliffWorld{suffix}-v0",
-        entry_point="imitation.envs.examples.model_envs:CliffWorld",
-        kwargs=kwargs,
-    )
+        fig, axs = plt.subplots(self.n_levels, 1)
+        for level in range(self.n_levels):
+            axs[level, 0].imshow(grid[:, :, level])
+            axs[level, 0].gca().grid(False)
 
 def register_grid(suffix, kwargs):
     gym.register(
@@ -238,41 +174,27 @@ def register_grid(suffix, kwargs):
     )
 
 
-for width, height, horizon in [(1, 1, 9), (7, 1, 9), (7, 4, 9), (15, 6, 18), (100, 20, 110)]:
-    for use_xy in [False, True]:
-        use_xy_str = "XY" if use_xy else ""
-        register_cliff(
-            f"{width}x{height}{use_xy_str}",
-            kwargs={
-                "width": width,
-                "height": height,
-                "use_xy_obs": use_xy,
-                "horizon": horizon,
-            },
-        )
+registered_env_names = []
 
-        register_grid(
-            f"{width}x{height}{use_xy_str}",
-            kwargs={
-                "width": width,
-                "height": height,
-                "use_xy_obs": use_xy,
-                "horizon": horizon,
-            },
-        )
+for height, width, horizon in [(4, 7, 9)]:
+    for reduce_rows in [0, 1]:
+        for reduce_cols in [0, 1]:
+            for n_objects in [0, 1, 2, 3]:
+                reduce_rows_str = "xred-rows" if reduce_rows else ""
+                reduce_cols_str = "xred-cols" if reduce_cols else ""
+                objects_str = f"xobjects-{n_objects}"
+                env_name = f"{width}x{height}{objects_str}{reduce_rows_str}{reduce_cols_str}"
 
-# These parameter choices are somewhat arbitrary.
-# We anticipate most users will want to construct RandomMDP directly.
-gym.register(
-    "imitation/Random-v0",
-    entry_point="imitation.envs.examples.model_envs:RandomMDP",
-    kwargs={
-        "n_states": 16,
-        "n_actions": 3,
-        "branch_factor": 2,
-        "horizon": 20,
-        "random_obs": True,
-        "obs_dim": 5,
-        "generator_seed": 42,
-    },
-)
+                registered_env_names.append(env_name)
+
+                register_grid(
+                    env_name,
+                    kwargs={
+                        "width": width,
+                        "height": height,
+                        "horizon": horizon,
+                        "n_objects": n_objects,
+                        "reduce_rows": reduce_rows,
+                        "reduce_cols": reduce_cols
+                    },
+                )

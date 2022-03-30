@@ -22,7 +22,7 @@ from imitation.rewards import reward_nets
 DEMO_STEPS = 10000
 EXPERT_TRAJS = "all"
 TRAIN_ITER = 1000
-TARGET_STATES = (1,)
+LOG_INTERVAL = None
 
 
 def train_mce_irl(demos, env, state_venv, **kwargs):
@@ -35,7 +35,7 @@ def train_mce_irl(demos, env, state_venv, **kwargs):
         hid_sizes=[]
     )
 
-    mce_irl = MCEIRL(demos, env, reward_net, linf_eps=1e-3)
+    mce_irl = MCEIRL(demos, env, reward_net, linf_eps=1e-3, log_interval=LOG_INTERVAL)
     mce_irl.train(max_iter=TRAIN_ITER, **kwargs)
 
     imitation_trajs = rollout.generate_trajectories(
@@ -47,27 +47,13 @@ def train_mce_irl(demos, env, state_venv, **kwargs):
 
     return mce_irl, reward_net
 
-def make_envs():
-    # env_name = "imitation/CliffWorld7x4-v0"
-    env_name = "imitation/GridWorld7x4-v0"
+def get_envs(identifier):
+    env_name = f"imitation/GridWorld7x4x{identifier}-v0"
     env = gym.make(env_name)
     state_venv = resettable_env.DictExtractWrapper(
         DummyVecEnv([lambda: gym.make(env_name)] * 4), "state"
     )
-
-    env_name_only_cols = "imitation/GridWorld7x1-v0"
-    env_only_cols = gym.make(env_name_only_cols)
-    state_venv_only_cols = resettable_env.DictExtractWrapper(
-        DummyVecEnv([lambda: gym.make(env_name_only_cols)] * 4), "state"
-    )
-
-    env_name_only_objs = "imitation/GridWorld1x1-v0"
-    env_only_objs = gym.make(env_name_only_objs)
-    state_venv_only_objs = resettable_env.DictExtractWrapper(
-        DummyVecEnv([lambda: gym.make(env_name_only_objs)] * 4), "state"
-    )
-
-    return env, env_only_cols, env_only_objs, state_venv, state_venv_only_cols, state_venv_only_objs
+    return env, state_venv
 
 def gen_expert_trajs(env, pi, state_venv):
     expert = TabularPolicy(
@@ -123,6 +109,7 @@ def convert_traj_to_features(traj, env):
     return out
 
 def get_relevant_dim():
+
     env, env_only_cols, env_only_objs, state_venv, state_venv_only_cols, state_venv_only_objs = make_envs()
 
     _, _, pi_exp = mce_partition_fh(env, policy_temp=1)
@@ -177,37 +164,115 @@ def get_relevant_dim():
     clf = LogisticRegression(random_state=0, solver="liblinear", penalty="l1").fit(X_train[:, 4:], y_train)
     print(f"Test classification row only: {clf.score(X_test[:, 4:], y_test)}")
 
-def main():
+def IRL_from_occupancy(om, env, state_venv):
+    irl_from_occupancy_measure(om, env, state_venv)
 
-    env, env_only_cols, env_only_objs, state_venv, state_venv_only_cols, state_venv_only_objs = make_envs()
+def IRL_from_trajs(expert_trajs, env, state_venv):
+    irl_from_trajs(expert_trajs, env, state_venv)
 
-    _, _, pi = mce_partition_fh(env, policy_temp=7)
 
-    _, om = mce_occupancy_measures(env, pi=pi)
+def get_envs_for_experiment(expert_env, learner_env):
 
-    expert_trajs = gen_expert_trajs(env, pi, state_venv)
+    return *get_envs(expert_env), *get_envs(learner_env)
 
+def modify_om_for_experiment(env_expert, env_learner, om):
+
+    if not env_learner.reduce_rows and not env_learner.reduce_cols:
+        return om
+    elif env_learner.reduce_rows and not env_learner.reduce_cols:
+        om = om.reshape(env_expert.height, env_expert.width, env_expert.n_levels)
+        om = np.mean(om, axis=0)
+        om = om.flatten()
+        return om
+    elif env_learner.reduce_rows and env_learner.reduce_cols:
+        om = om.reshape(env_expert.height, env_expert.width, env_expert.n_levels)
+        om = np.mean(om, axis=(0, 1))
+        om = om.flatten()
+        return om
+    else:
+        raise ValueError("Unknown Experiment Type")
+
+def modify_expert_trajs_for_experiment(env_expert, env_learner, expert_trajs):
+
+    if not env_learner.reduce_rows and not env_learner.reduce_cols:
+        return expert_trajs
+    elif env_learner.reduce_rows and not env_learner.reduce_cols:
+        assert env_expert.n_objects == 0, "Not implemented for more levels yet"
+        for traj in expert_trajs:
+            traj.obs = [elem % env_expert.width for elem in traj.obs]
+        return expert_trajs
+    elif env_learner.reduce_rows and env_learner.reduce_cols:
+        for traj in expert_trajs:
+            traj.obs = [elem // (env_expert.width * env_expert.height) for elem in traj.obs]
+        return expert_trajs
+    else:
+        raise ValueError("Unknown Experiment Type")
+
+def print_run_info(expert_env, learner_env):
+    print(f"####################### Expert: {expert_env} ######################")
+    print(f"####################### Learner: {learner_env} ######################")
+
+def run_IRL(expert_env_id, learner_env_id):
+
+    print_run_info(expert_env_id, learner_env_id)
+
+    env_expert, state_venv_expert, env_learner, state_venv_learner = get_envs_for_experiment(expert_env_id, learner_env_id)
+
+    _, _, pi = mce_partition_fh(env_expert, policy_temp=7)
+
+    _, om = mce_occupancy_measures(env_expert, pi=pi)
+    ## TODO plot and save OM
+
+    expert_trajs = gen_expert_trajs(env_expert, pi, state_venv_expert)
+
+    om = modify_om_for_experiment(env_expert, env_learner, om)
+    ## TODO save plot of modified OM
+
+    IRL_from_occupancy(om, env_learner, state_venv_learner)
+    ## TODO plot reward map
+
+    expert_trajs = modify_expert_trajs_for_experiment(env_expert, env_learner, expert_trajs)
+
+    IRL_from_trajs(expert_trajs, env_learner, state_venv_learner)
+    ## TODO plot reward map
     ################## LEARN FROM OCCUPANCY MEASURE ##############################
 
-    om = om.reshape(env.height, env.width, env.env.n_objects+1)
-    om_reduced = np.mean(om, axis=(0, 1))
 
-    irl_from_occupancy_measure(om_reduced, env_only_objs, state_venv_only_objs)
     ## 33 return mean on full state space
     ## (high variance) return mean 25 on reduced state
 
     ################## LEARN FROM TRAJECTORIES ##############################
-    if EXPERT_TRAJS != "all":
-        expert_trajs_passed = expert_trajs[0:EXPERT_TRAJS]
-    else:
-        expert_trajs_passed = expert_trajs
 
-    for traj in expert_trajs_passed:
-        traj.obs = [elem // (env.width * env.height) for elem in traj.obs]
 
-    irl_from_trajs(expert_trajs, env_only_objs, state_venv_only_objs)
+    # if EXPERT_TRAJS != "all":
+    #     expert_trajs_passed = expert_trajs[0:EXPERT_TRAJS]
+    # else:
+    #     expert_trajs_passed = expert_trajs
+    #
+    # for traj in expert_trajs_passed:
+    #     traj.obs = [elem // (env.width * env.height) for elem in traj.obs]
+
     ## 42 return mean on full state space
     ## (low variance) return mean 23 on reduced state
+
+# def run_IRL_reduced_rows():
+#
+# def run_IRL_reduced_rows_cols():
+
+def main():
+
+   ## Experiment options:
+   ## Expert_env: ["objects-0"]
+   ## Learner_env: ["same", "reduced_rows", reduced_rows_reduced_cols"]
+
+   run_IRL(expert_env_id="objects-0", learner_env_id="objects-0")
+   run_IRL(expert_env_id="objects-0", learner_env_id="objects-0xred-rows")
+
+   run_IRL(expert_env_id="objects-1", learner_env_id="objects-1")
+   run_IRL(expert_env_id="objects-1", learner_env_id="objects-1xred-rowsxred-cols")
+
+   run_IRL(expert_env_id="objects-3", learner_env_id="objects-3")
+   run_IRL(expert_env_id="objects-3", learner_env_id="objects-3xred-rowsxred-cols")
 
 def plot_om(om, id):
     plt.imshow(om)
