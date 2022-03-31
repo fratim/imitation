@@ -73,9 +73,9 @@ def load_expert_trajs(
     """
     if specification is None:
         expert_trajs = types.load(rollout_path)
-    elif specification is "good":
+    elif specification == "good":
         expert_trajs = types.load(rollout_path_good)
-    elif specification is "bad":
+    elif specification == "bad":
         expert_trajs = types.load(rollout_path_bad)
     else:
         raise NotImplementedError
