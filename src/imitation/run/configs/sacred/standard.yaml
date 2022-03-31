@@ -14,13 +14,15 @@ eval_rl_policy:
         videos: 1
         seed: ${seed.value}
 
+
 eval_dimensions:
     named_configs: ${run_test.train_adversarial.named_configs}
     config_updates:
         common:
             log_dir: logss/
         demonstrations:
-            rollout_path: /Users/tim/Code/imitation/rl_demos/env=seals_mountain_car_org,run_test=minimum_training,seed=two/logss/rollouts/initial.pkl
+            rollout_path_good: /Users/tim/Code/imitation/rl_demos/good_runs/env=seals_mountain_car_org,seed=one/logss/rollouts/final.pkl
+            rollout_path_bad: /Users/tim/Code/imitation/rl_demos/low_train_runs/env=seals_mountain_car_org,run_test=minimum_training/logss/rollouts/initial.pkl
         seed: ${seed.value}
 
 train_adversarial:

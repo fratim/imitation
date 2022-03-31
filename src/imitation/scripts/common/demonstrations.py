@@ -18,6 +18,8 @@ def config():
     data_dir = "data/"
     rollout_path = None  # path to file containing rollouts
     n_expert_demos = None  # Num demos used. None uses every demo possible
+    rollout_path_good = None
+    rollout_path_bad = None
 
     locals()  # quieten flake8
 
@@ -51,7 +53,10 @@ def hook(config, command_name, logger):
 @demonstrations_ingredient.capture
 def load_expert_trajs(
     rollout_path: str,
+    rollout_path_good: str,
+    rollout_path_bad: str,
     n_expert_demos: Optional[int],
+    specification: None,
 ) -> Sequence[types.Trajectory]:
     """Loads expert demonstrations.
 
@@ -66,7 +71,15 @@ def load_expert_trajs(
     Raises:
         ValueError: There are fewer trajectories than `n_expert_demos`.
     """
-    expert_trajs = types.load(rollout_path)
+    if specification is None:
+        expert_trajs = types.load(rollout_path)
+    elif specification is "good":
+        expert_trajs = types.load(rollout_path_good)
+    elif specification is "bad":
+        expert_trajs = types.load(rollout_path_bad)
+    else:
+        raise NotImplementedError
+
     logger.info(f"Loaded {len(expert_trajs)} expert trajectories from '{rollout_path}'")
     if n_expert_demos is not None:
         if len(expert_trajs) < n_expert_demos:
