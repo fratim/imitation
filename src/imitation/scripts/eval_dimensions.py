@@ -9,6 +9,11 @@ import sacred.commands
 import torch as th
 from sacred.observers import FileStorageObserver
 
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+import numpy as np
+
 from imitation.algorithms.adversarial import airl as airl_algo
 from imitation.algorithms.adversarial import common
 from imitation.algorithms.adversarial import gail as gail_algo
@@ -67,8 +72,44 @@ def eval_dimensions(
     expert_trajs_good = demonstrations.load_expert_trajs(specification="good")
     expert_trajs_bad = demonstrations.load_expert_trajs(specification="bad")
 
+    get_relevant_dimensions(expert_trajs_good, expert_trajs_bad)
+
     print("done")
 
+def add_trajectories(trajs, X, y, y_label):
+    for traj in trajs:
+        for j in range(len(traj.obs) - 1):
+            entry = []
+            for elem1, elem2 in zip(traj.obs[j], traj.obs[j+1]):
+                entry.append(elem1)
+                entry.append(elem2)
+
+            X.append(entry)
+            y.append([y_label])
+
+    return X, y
+
+def get_relevant_dimensions(good_trajs, bad_trajs):
+
+    X = list()
+    y = list()
+
+    X, y = add_trajectories(good_trajs, X, y, y_label=1)
+    X, y = add_trajectories(bad_trajs, X, y, y_label=0)
+
+    X = np.array(X)
+    y = np.array(y)[:, 0]
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+
+    # both row and col coordinate
+    clf = LogisticRegression(random_state=0, solver="liblinear", penalty="l1", C=0.05).fit(X_train, y_train)
+    print(f"Test classification score both: {clf.score(X_test, y_test)}")
+
+    for c in range(10000, 1, -10):
+        c_used = 1/c
+        print(f"c used: {c_used}")
+        print(LogisticRegression(random_state=0, solver="liblinear", penalty="l1", C=c_used).fit(X_train, y_train).coef_)
 
 
 def main_console(parameters=None):
