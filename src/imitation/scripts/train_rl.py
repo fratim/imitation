@@ -25,6 +25,8 @@ from imitation.rewards.serialize import load_reward
 from imitation.scripts.common import common, rl, train
 from imitation.scripts.config.train_rl import train_rl_ex
 
+ROLLOUT_SAVE_INITIAL = True
+
 @train_rl_ex.main
 def train_rl(
     *,
@@ -114,6 +116,15 @@ def train_rl(
 
     rl_algo = rl.make_rl_algo(venv)
     rl_algo.set_logger(custom_logger)
+
+    if ROLLOUT_SAVE_INITIAL:
+        save_path = osp.join(rollout_dir, "initial.pkl")
+        sample_until = rollout.make_sample_until(
+            rollout_save_n_timesteps,
+            rollout_save_n_episodes,
+        )
+        types.save(save_path, rollout.rollout(rl_algo, venv, sample_until))
+
     rl_algo.learn(total_timesteps, callback=callback)
 
     # Save final artifacts after training is complete.

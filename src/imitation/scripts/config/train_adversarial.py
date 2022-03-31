@@ -400,6 +400,10 @@ def test():
     total_timesteps = 30000
 
 @train_adversarial_ex.named_config
+def minimum_training():
+    total_timesteps = 10000
+
+@train_adversarial_ex.named_config
 def fast():
     # Minimize the amount of computation. Useful for test cases.
 

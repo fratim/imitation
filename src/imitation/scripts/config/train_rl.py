@@ -193,6 +193,12 @@ def test():
     """Intended for testing purposes: small # of updates, ends quickly."""
     total_timesteps = int(20000)
 
+# Debug configs
+@train_rl_ex.named_config
+def minimum_training():
+    """Intended for testing purposes: small # of updates, ends quickly."""
+    total_timesteps = int(10000)
+
 
 @train_rl_ex.named_config
 def fast():
