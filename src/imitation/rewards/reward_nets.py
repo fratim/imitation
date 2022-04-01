@@ -271,7 +271,6 @@ class BasicRewardNet(RewardNet):
             use_done: should the "done" flag be included as an input to the MLP?
             kwargs: passed straight through to `build_mlp`.
         """
-
         super().__init__(observation_space, action_space)
         combined_size = 0
 

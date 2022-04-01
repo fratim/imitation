@@ -499,18 +499,11 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         assert n_gen == len(gen_samples["next_obs"])
 
 
-        # Concatenate rollouts, and label each row as expert or generator.
-        import pdb
-        pdb.set_trace()
-
-        # how to treat actions? yet to be solved
+        # TODO-TF how to treat actions? yet to be solved
         if hasattr(self._reward_net, "target_states"):
-            import pdb
-            pdb.set_trace()
-
             target_states = self._reward_net.target_states
             obs = np.concatenate([expert_samples["obs"][:, target_states], expert_samples["obs"][:, target_states]])
-            acts = np.concatenate([expert_samples["acts"][:, (0, )], gen_samples["acts"][:, (0, )]])
+            acts = np.concatenate([expert_samples["acts"][:, (0, )], gen_samples["acts"][:, (0, )]]) # TODO-TF fix this
             next_obs = np.concatenate([expert_samples["next_obs"][:, target_states], gen_samples["next_obs"][:, target_states]])
         else:
             obs = np.concatenate([expert_samples["obs"], expert_samples["obs"]])
@@ -554,7 +547,6 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             "next_state": next_obs_th,
             "done": dones_th,
             "labels_gen_is_one": self._torchify_array(labels_gen_is_one),
-            # "log_policy_act_prob": self._torchify_array(log_act_prob),
             "log_policy_act_prob": None,
         }
 
