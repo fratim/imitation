@@ -106,13 +106,25 @@ def get_relevant_dimensions(good_trajs, bad_trajs):
     clf = LogisticRegression(random_state=0, solver="liblinear", penalty="l1", C=0.05).fit(X_train, y_train)
     print(f"Test classification score both: {clf.score(X_test, y_test)}")
 
-    for c in range(100000, 1, -1000):
-        c_used = 1/c
+    cs = []
+    accuracies = []
+    n_components = []
+
+    for c in range(1000000, 1, -100):
+        c_used = 0.1/c
         print(f"##################################")
         print(f"c used: {c_used}")
         clf = LogisticRegression(random_state=0, solver="liblinear", penalty="l1", C=c_used).fit(X_train, y_train)
-        print(clf.coef_)
-        print(f"Test classification score: {clf.score(X_test, y_test)}")
+        coef = clf.coef_
+        print(coef)
+        n_components.append(np.count_nonzero(coef))
+        accuracy = clf.score(X_test, y_test)
+        print(f"Test classification score: {accuracy}")
+        cs.append(c_used)
+        accuracies.append(accuracy)
+
+    plt.plot(cs, accuracies, cs, n_components)
+    plt.show()
 
 
 
