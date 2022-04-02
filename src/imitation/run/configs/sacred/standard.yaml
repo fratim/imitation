@@ -21,7 +21,7 @@ train_adversarial:
         common:
             log_dir: logss/
         demonstrations:
-            rollout_path: /work/frtim/airl_saved/rl_demos/${demonstrator.name}/logss/rollouts/final.pkl
+            rollout_path: ${exec.output_dir}/airl_saved/rl_demos/${demonstrator.name}/logss/rollouts/final.pkl
         seed: ${seed.value}
         reward:
             algorithm_specific:

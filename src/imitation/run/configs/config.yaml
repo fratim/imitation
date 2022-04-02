@@ -31,9 +31,9 @@ hydra:
         setup: null
 
     run:
-        dir: /work/frtim/airl_runs/${env.name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
+        dir: ${exec.output_dir}/airl_runs/${env.name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
     sweep:
-        dir: /work/frtim/airl_runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
+        dir: ${exec.output_dir}/airl_runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
         subdir: ${hydra.job.override_dirname}
 
 # add job id
