@@ -258,6 +258,7 @@ class BasicRewardNet(RewardNet):
         use_action: bool = True,
         use_next_state: bool = False,
         use_done: bool = False,
+        add_encoder: bool = False,
         **kwargs,
     ):
         """Builds reward MLP.
@@ -300,6 +301,7 @@ class BasicRewardNet(RewardNet):
                 "in_size": combined_size,
                 "out_size": 1,
                 "squeeze_output": True,
+                "add_encoder": add_encoder
             },
         )
 
@@ -323,6 +325,27 @@ class BasicRewardNet(RewardNet):
 
         return outputs
 
+    def forward_encoder(self, state, action, next_state, done):
+        inputs = []
+        if self.use_state:
+            inputs.append(th.flatten(state, 1))
+        if self.use_action:
+            inputs.append(th.flatten(action, 1))
+        if self.use_next_state:
+            inputs.append(th.flatten(next_state, 1))
+        if self.use_done:
+            inputs.append(th.reshape(done, [-1, 1]))
+
+        inputs_concat = th.cat(inputs, dim=1)
+
+        outputs = self.mlp(inputs_concat)
+
+        return outputs
+
+    def forward_direct(self, inputs):
+        outputs = self.mlp(inputs)
+        return outputs
+
 
 class BasicRewardNetTruncated(BasicRewardNet):
     """
@@ -338,6 +361,7 @@ class BasicRewardNetTruncated(BasicRewardNet):
             use_next_state: bool = False,
             use_done: bool = False,
             target_states: Sequence[int] = [0],
+            add_encoder: bool = False,
             **kwargs,
     ):
         self.target_states = tuple(target_states)
@@ -350,7 +374,6 @@ class BasicRewardNetTruncated(BasicRewardNet):
 
         new_observation_space = Box(low=observation_space_low, high=observation_space_high)
 
-
         super().__init__(
             observation_space=new_observation_space,
             action_space=action_space,
@@ -358,6 +381,7 @@ class BasicRewardNetTruncated(BasicRewardNet):
             use_action=use_action,
             use_next_state=use_next_state,
             use_done=use_done,
+            add_encoder=add_encoder,
         )
 
     def forward(

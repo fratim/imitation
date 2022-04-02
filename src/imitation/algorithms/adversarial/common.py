@@ -108,6 +108,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         venv: vec_env.VecEnv,
         gen_algo: base_class.BaseAlgorithm,
         reward_net: reward_nets.RewardNet,
+        encoder_net: reward_nets.RewardNet,
         n_disc_updates_per_round: int = 2,
         log_dir: str = "output/",
         normalize_reward: bool = True,
@@ -180,12 +181,14 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
 
         self._global_step = 0
         self._disc_step = 0
+        self._encoder_step = 0
         self.n_disc_updates_per_round = n_disc_updates_per_round
 
         self.debug_use_ground_truth = debug_use_ground_truth
         self.venv = venv
         self.gen_algo = gen_algo
         self._reward_net = reward_net.to(gen_algo.device)
+        self._encoder_net = encoder_net.to(gen_algo.device)
         self._log_dir = log_dir
 
         # Create graph for optimising/recording stats on discriminator
@@ -195,6 +198,10 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         self._init_tensorboard_graph = init_tensorboard_graph
         self._disc_opt = self._disc_opt_cls(
             self._reward_net.parameters(),
+            **self._disc_opt_kwargs,
+        )
+        self._encoder_opt = self._disc_opt_cls(
+            self._encoder_net.parameters(),
             **self._disc_opt_kwargs,
         )
 
@@ -358,6 +365,76 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
 
         return train_stats
 
+    def train_enc(
+        self,
+        *,
+        gen_samples: Optional[Mapping] = None,
+    ) -> Optional[Mapping[str, float]]:
+        """Perform a single discriminator update, optionally using provided samples.
+
+        Args:
+            expert_samples: Transition samples from the expert in dictionary form.
+                If provided, must contain keys corresponding to every field of the
+                `Transitions` dataclass except "infos". All corresponding values can be
+                either NumPy arrays or Tensors. Extra keys are ignored. Must contain
+                `self.demo_batch_size` samples. If this argument is not provided, then
+                `self.demo_batch_size` expert samples from `self.demo_data_loader` are
+                used by default.
+            gen_samples: Transition samples from the generator policy in same dictionary
+                form as `expert_samples`. If provided, must contain exactly
+                `self.demo_batch_size` samples. If not provided, then take
+                `len(expert_samples)` samples from the generator replay buffer.
+
+        Returns:
+            Statistics for discriminator (e.g. loss, accuracy).
+        """
+        with self.logger.accumulate_means("enc"):
+            # optionally write TB summaries for collected ops
+            write_summaries = self._init_tensorboard and self._global_step % 20 == 0
+
+            # compute loss
+            batch = self._make_enc_train_batch(
+                gen_samples=gen_samples,
+            )
+            disc_logits = self.logits_gen_is_high_with_encoder(
+                batch["state"],
+                batch["action"],
+                batch["next_state"],
+                batch["done"],
+                batch["log_policy_act_prob"],
+            )
+
+            ## we want the discriminator to predict that this is actually the expert
+            labels = batch["labels_gen_is_one"]*0
+
+            loss = F.binary_cross_entropy_with_logits(
+                disc_logits,
+                labels.float() ## ODO make sure this is correct,
+            )
+
+            # do gradient step
+            self._encoder_opt.zero_grad()
+            loss.backward()
+            self._encoder_opt.step()
+            self._encoder_step += 1
+
+            # compute/write stats and TensorBoard data
+            # with th.no_grad():
+            #     train_stats = compute_train_stats(
+            #         disc_logits,
+            #         batch["labels_gen_is_one"],
+            #         loss,
+            #     )
+            # self.logger.record("global_step", self._global_step)
+            # for k, v in train_stats.items():
+            #     self.logger.record(k, v)
+            # self.logger.dump(self._disc_step)
+            # if write_summaries:
+            #     self._summary_writer.add_histogram("disc_logits", disc_logits.detach())
+
+        return None
+
+
     def train_gen(
         self,
         total_timesteps: Optional[int] = None,
@@ -426,6 +503,8 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                 with networks.training(self.reward_train):
                     # switch to training mode (affects dropout, normalization)
                     self.train_disc()
+                with networks.training(self._encoder_net):
+                    self.train_enc()
             if callback:
                 callback(r)
             self.logger.dump(self._global_step)
@@ -515,6 +594,114 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         labels_gen_is_one = np.concatenate(
             [np.zeros(n_expert, dtype=int), np.ones(n_gen, dtype=int)],
         )
+
+        # Problem: the action probabilities cannot be evaluated here for the demonstrator, as we do
+        # not assume access to the demonstrator's policy to be given
+
+        # Calculate generator-policy log probabilities.State-Only Imitation Learning for Dexterous Manipulation
+        # with th.no_grad():
+        #     obs_th = th.as_tensor(obs, device=self.gen_algo.device)
+        #     acts_th = th.as_tensor(acts, device=self.gen_algo.device)
+        #     log_act_prob = None
+        #     if hasattr(self.gen_algo.policy, "evaluate_actions"):
+        #         _, log_act_prob_th, _ = self.gen_algo.policy.evaluate_actions(
+        #             obs_th,
+        #             acts_th,
+        #         )
+        #         log_act_prob = log_act_prob_th.detach().cpu().numpy()
+        #         del log_act_prob_th  # unneeded
+        #         assert len(log_act_prob) == n_samples
+        #         log_act_prob = log_act_prob.reshape((n_samples,))
+        #     del obs_th, acts_th  # unneeded
+
+        obs_th, acts_th, next_obs_th, dones_th = self.reward_train.preprocess(
+            obs,
+            acts,
+            next_obs,
+            dones,
+        )
+        batch_dict = {
+            "state": obs_th,
+            "action": acts_th,
+            "next_state": next_obs_th,
+            "done": dones_th,
+            "labels_gen_is_one": self._torchify_array(labels_gen_is_one),
+            "log_policy_act_prob": None,
+        }
+
+        return batch_dict
+
+
+    def _make_enc_train_batch(
+        self,
+        *,
+        gen_samples: Optional[Mapping] = None,
+    ) -> Mapping[str, th.Tensor]:
+        """Build and return training batch for the next discriminator update.
+
+        Args:
+            gen_samples: Same as in `train_disc`.
+            expert_samples: Same as in `train_disc`.
+
+        Returns:
+            The training batch: state, action, next state, dones, labels
+            and policy log-probabilities.
+
+        Raises:
+            RuntimeError: Empty generator replay buffer.
+            ValueError: `gen_samples` or `expert_samples` batch size is
+                different from `self.demo_batch_size`.
+        """
+
+        if gen_samples is None:
+            if self._gen_replay_buffer.size() == 0:
+                raise RuntimeError(
+                    "No generator samples for training. " "Call `train_gen()` first.",
+                )
+            gen_samples = self._gen_replay_buffer.sample(self.demo_batch_size)
+            gen_samples = types.dataclass_quick_asdict(gen_samples)
+
+        n_gen = len(gen_samples["obs"])
+        if not (n_gen == self.demo_batch_size):
+            raise ValueError(
+                "Need to have exactly self.demo_batch_size number of expert and "
+                "generator samples, each. "
+                f"(n_gen={n_gen} "
+                f"demo_batch_size={self.demo_batch_size})",
+            )
+
+        # Guarantee that Mapping arguments are in mutable form.
+        gen_samples = dict(gen_samples)
+
+        # Convert applicable Tensor values to NumPy.
+        for field in dataclasses.fields(types.Transitions):
+            k = field.name
+            if k == "infos":
+                continue
+            for d in [gen_samples]:
+                if isinstance(d[k], th.Tensor):
+                    d[k] = d[k].detach().numpy()
+        assert isinstance(gen_samples["obs"], np.ndarray)
+
+        # Check dimensions.
+        assert n_gen == len(gen_samples["acts"])
+        assert n_gen == len(gen_samples["next_obs"])
+
+
+        # TODO-TF how to treat actions? yet to be solved
+        if hasattr(self._reward_net, "target_states"):
+            target_states = self._reward_net.target_states
+            obs = gen_samples["obs"][:, target_states]
+            acts = gen_samples["acts"][:, (0, )] # TODO-TF fix this
+            next_obs = gen_samples["next_obs"][:, target_states]
+        else:
+            obs = gen_samples["obs"] # TODO there was a huge bug here...
+            acts = gen_samples["acts"]
+            next_obs = gen_samples["next_obs"]
+
+
+        dones = gen_samples["dones"]
+        labels_gen_is_one = np.ones(n_gen, dtype=int)
 
         # Problem: the action probabilities cannot be evaluated here for the demonstrator, as we do
         # not assume access to the demonstrator's policy to be given

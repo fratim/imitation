@@ -7,6 +7,8 @@ defaults:
     - demonstrator: seals_mountain_car_seed_one
     - sacred: standard
     - seed: one
+    - exec: cluster
+    - add_encoder: "no"
     - override /hydra/launcher: submitit_slurm
 
 

@@ -70,3 +70,32 @@ def make_reward_net(
     )
     logging.info(f"Reward network:\n {reward_net}")
     return reward_net
+
+@reward_ingredient.capture
+def make_encoder_net(
+    venv: vec_env.VecEnv,
+    net_cls: Type[reward_nets.RewardNet],
+    net_kwargs: Mapping[str, Any],
+) -> reward_nets.RewardNet:
+    """Builds a reward network.
+
+    Args:
+        venv: Vectorized environment reward network will predict reward for.
+        net_cls: Class of reward network to construct.
+        net_kwargs: Keyword arguments passed to reward network constructor.
+
+    Returns:
+        None if `reward_net_cls` is None; otherwise, an instance of `reward_net_cls`.
+    """
+    import copy
+    encoder_args = copy.deepcopy(net_kwargs)
+    encoder_args["add_encoder"] = True # TODO change this to make_encoder
+    # TODO add this properly to configs + Hydra
+
+    reward_net = net_cls(
+        venv.observation_space,
+        venv.action_space,
+        **encoder_args,
+    )
+    logging.info(f"Reward network:\n {reward_net}")
+    return reward_net

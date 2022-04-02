@@ -98,6 +98,23 @@ class GAIL(common.AdversarialTrainer):
         assert logits.shape == state.shape[:1]
         return logits
 
+    def logits_gen_is_high_with_encoder(
+        self,
+        state: th.Tensor,
+        action: th.Tensor,
+        next_state: th.Tensor,
+        done: th.Tensor,
+        log_policy_act_prob: Optional[th.Tensor] = None,
+    ) -> th.Tensor:
+        """Compute the discriminator's logits for each state-action sample."""
+        del log_policy_act_prob
+
+        encoder_out = self._encoder_net.forward_encoder(state, action, next_state, done)
+        # this has to be properly fed into the reward net directly
+        logits = self._reward_net.forward_direct(encoder_out)
+        assert logits.shape == state.shape[:1]
+        return logits
+
     @property
     def reward_train(self) -> reward_nets.RewardNet:
         return self._processed_reward

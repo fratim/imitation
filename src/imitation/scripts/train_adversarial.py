@@ -18,6 +18,7 @@ from imitation.scripts.common import common as common_config
 from imitation.scripts.common import demonstrations, reward, rl, train
 from imitation.scripts.config.train_adversarial import train_adversarial_ex
 
+
 logger = logging.getLogger("imitation.scripts.train_adversarial")
 
 
@@ -112,9 +113,9 @@ def train_adversarial(
     venv = common_config.make_venv()
     gen_algo = rl.make_rl_algo(venv)
 
-    ## adjust input size of reward net here
-
     reward_net = reward.make_reward_net(venv)
+
+    encoder_net = reward.make_encoder_net(venv)
 
     logger.info(f"Using '{algo_cls}' algorithm")
     algorithm_kwargs = dict(algorithm_kwargs)
@@ -131,6 +132,7 @@ def train_adversarial(
         log_dir=log_dir,
         reward_net=reward_net,
         custom_logger=custom_logger,
+        encoder_net=encoder_net,
         **algorithm_kwargs,
     )
 
