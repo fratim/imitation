@@ -4,6 +4,7 @@ import collections
 import dataclasses
 import logging
 import os
+import pdb
 from typing import Callable, Mapping, Optional, Sequence, Tuple, Type
 
 import numpy as np
@@ -18,6 +19,8 @@ from imitation.data import buffer, rollout, types, wrappers
 from imitation.rewards import reward_nets, reward_wrapper
 from imitation.util import logger, networks, util
 
+
+SWITCH_X_AND_Z = False
 
 def compute_train_stats(
     disc_logits_gen_is_high: th.Tensor,
@@ -584,15 +587,17 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         assert n_gen == len(gen_samples["acts"])
         assert n_gen == len(gen_samples["next_obs"])
 
+        import pdb
+        pdb.set_trace()
 
         # TODO-TF how to treat actions? yet to be solved
         if hasattr(self._reward_net, "target_states"):
             target_states = self._reward_net.target_states
-            obs = np.concatenate([expert_samples["obs"][:, target_states], expert_samples["obs"][:, target_states]])
+            obs = np.concatenate([expert_samples["obs"][:, target_states], gen_samples["obs"][:, target_states]])
             acts = np.concatenate([expert_samples["acts"][:, (0, )], gen_samples["acts"][:, (0, )]]) # TODO-TF fix this
             next_obs = np.concatenate([expert_samples["next_obs"][:, target_states], gen_samples["next_obs"][:, target_states]])
         else:
-            obs = np.concatenate([expert_samples["obs"], expert_samples["obs"]])
+            obs = np.concatenate([expert_samples["obs"], gen_samples["obs"]])
             acts = np.concatenate([expert_samples["acts"], gen_samples["acts"]])
             next_obs = np.concatenate([expert_samples["next_obs"], gen_samples["next_obs"]])
 
