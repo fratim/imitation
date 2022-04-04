@@ -502,11 +502,11 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         # TODO-TF how to treat actions? yet to be solved
         if hasattr(self._reward_net, "target_states"):
             target_states = self._reward_net.target_states
-            obs = np.concatenate([expert_samples["obs"][:, target_states], expert_samples["obs"][:, target_states]])
+            obs = np.concatenate([expert_samples["obs"][:, target_states], gen_samples["obs"][:, target_states]])
             acts = np.concatenate([expert_samples["acts"][:, (0, )], gen_samples["acts"][:, (0, )]]) # TODO-TF fix this
             next_obs = np.concatenate([expert_samples["next_obs"][:, target_states], gen_samples["next_obs"][:, target_states]])
         else:
-            obs = np.concatenate([expert_samples["obs"], expert_samples["obs"]])
+            obs = np.concatenate([expert_samples["obs"], gen_samples["obs"]])
             acts = np.concatenate([expert_samples["acts"], gen_samples["acts"]])
             next_obs = np.concatenate([expert_samples["next_obs"], gen_samples["next_obs"]])
 
