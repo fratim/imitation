@@ -121,7 +121,7 @@ def build_mlp(
     squeeze_output: bool = False,
     flatten_input: bool = False,
     normalize_input_layer: Optional[Type[nn.Module]] = None,
-    add_encoder: bool = False,
+    use_bias: bool = True,
 ) -> nn.Module:
     """Constructs a Torch MLP.
 
@@ -161,24 +161,16 @@ def build_mlp(
     if normalize_input_layer:
         layers[f"{prefix}normalize_input"] = normalize_input_layer(in_size)
 
-    # Add Encoder layers here
-    if add_encoder:
-        assert flatten_input == False
-        assert normalize_input_layer is None
-        layers[f"{prefix}encoder_liner_0"] = nn.Linear(in_size, in_size, bias=False)
-        model = nn.Sequential(layers)
-        return model
-
     # Hidden layers
     prev_size = in_size
     for i, size in enumerate(hid_sizes):
-        layers[f"{prefix}dense{i}"] = nn.Linear(prev_size, size)
+        layers[f"{prefix}dense{i}"] = nn.Linear(prev_size, size, bias=use_bias)
         prev_size = size
         if activation:
             layers[f"{prefix}act{i}"] = activation()
 
     # Final layer
-    layers[f"{prefix}dense_final"] = nn.Linear(prev_size, out_size)
+    layers[f"{prefix}dense_final"] = nn.Linear(prev_size, out_size, bias=use_bias)
 
     if squeeze_output:
         if out_size != 1:

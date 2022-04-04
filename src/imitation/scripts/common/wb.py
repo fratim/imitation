@@ -17,7 +17,7 @@ def wandb_config():
     wandb_kwargs = dict(
         project="imitation",
         monitor_gym=False,
-        save_code=False,
+        save_code=True,
     )  # Other kwargs to pass to wandb.init()
 
     locals()

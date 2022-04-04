@@ -109,9 +109,11 @@ class GAIL(common.AdversarialTrainer):
         """Compute the discriminator's logits for each state-action sample."""
         del log_policy_act_prob
 
-        encoder_out = self._encoder_net.forward_encoder(state, action, next_state, done)
-        # this has to be properly fed into the reward net directly
-        logits = self._reward_net.forward_direct(encoder_out)
+        state_encoded = self._encoder_net.forward(state)
+        next_state_encoded = self._encoder_net.forward(next_state)
+
+        logits = self._reward_net.forward(state_encoded, action, next_state_encoded, done)
+
         assert logits.shape == state.shape[:1]
         return logits
 

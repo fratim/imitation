@@ -258,7 +258,6 @@ class BasicRewardNet(RewardNet):
         use_action: bool = True,
         use_next_state: bool = False,
         use_done: bool = False,
-        add_encoder: bool = False,
         **kwargs,
     ):
         """Builds reward MLP.
@@ -300,12 +299,12 @@ class BasicRewardNet(RewardNet):
                 # we do not want these overridden
                 "in_size": combined_size,
                 "out_size": 1,
-                "squeeze_output": True,
-                "add_encoder": add_encoder
+                "squeeze_output": True
             },
         )
 
         self.mlp = networks.build_mlp(**full_build_mlp_kwargs)
+
 
     def forward(self, state, action, next_state, done):
         inputs = []
@@ -325,27 +324,56 @@ class BasicRewardNet(RewardNet):
 
         return outputs
 
-    def forward_encoder(self, state, action, next_state, done):
-        inputs = []
-        if self.use_state:
-            inputs.append(th.flatten(state, 1))
-        if self.use_action:
-            inputs.append(th.flatten(action, 1))
-        if self.use_next_state:
-            inputs.append(th.flatten(next_state, 1))
-        if self.use_done:
-            inputs.append(th.reshape(done, [-1, 1]))
 
-        inputs_concat = th.cat(inputs, dim=1)
+class BasicEncoderNet(RewardNet):
 
-        outputs = self.mlp(inputs_concat)
+    def __init__(
+        self,
+        observation_space: gym.Space,
+        action_space: gym.Space,
+        **kwargs,
+    ):
+        """Builds reward MLP.
+
+        Args:
+            observation_space: The observation space.
+            action_space: The action space.
+            use_state: should the current state be included as an input to the MLP?
+            use_action: should the current action be included as an input to the MLP?
+            use_next_state: should the next state be included as an input to the MLP?
+            use_done: should the "done" flag be included as an input to the MLP?
+            kwargs: passed straight through to `build_mlp`.
+        """
+        super().__init__(observation_space, action_space)
+        # combined_size = preprocessing.get_flattened_obs_dim(observation_space)
+        combined_size = 3 # truncated version
+
+        full_build_mlp_kwargs = {
+            "hid_sizes": [],
+        }
+        full_build_mlp_kwargs.update(kwargs)
+        full_build_mlp_kwargs.update(
+            {
+                # we do not want these overridden
+                "in_size": combined_size,
+                "out_size": combined_size,
+                "squeeze_output": False,
+                "flatten_input": False,
+                "normalize_input_layer": False,
+                "use_bias": False
+            },
+        )
+
+        self.mlp = networks.build_mlp(**full_build_mlp_kwargs)
+
+
+    def forward(self, input):
+        # inputs = []
+        # inputs.append(th.flatten(state, 1))
+        # inputs_concat = th.cat(inputs, dim=1)
+        outputs = self.mlp(input)
 
         return outputs
-
-    def forward_direct(self, inputs):
-        outputs = self.mlp(inputs)
-        return outputs
-
 
 class BasicRewardNetTruncated(BasicRewardNet):
     """
@@ -361,7 +389,6 @@ class BasicRewardNetTruncated(BasicRewardNet):
             use_next_state: bool = False,
             use_done: bool = False,
             target_states: Sequence[int] = [0],
-            add_encoder: bool = False,
             **kwargs,
     ):
         self.target_states = tuple(target_states)
@@ -380,8 +407,7 @@ class BasicRewardNetTruncated(BasicRewardNet):
             use_state=use_state,
             use_action=use_action,
             use_next_state=use_next_state,
-            use_done=use_done,
-            add_encoder=add_encoder,
+            use_done=use_done
         )
 
     def forward(

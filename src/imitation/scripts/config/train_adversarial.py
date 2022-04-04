@@ -3,7 +3,7 @@
 import sacred
 
 from imitation.rewards import reward_nets
-from imitation.scripts.common import common, demonstrations, reward, rl, train
+from imitation.scripts.common import common, demonstrations, reward, rl, train, encoder
 
 train_adversarial_ex = sacred.Experiment(
     "train_adversarial",
@@ -13,6 +13,7 @@ train_adversarial_ex = sacred.Experiment(
         reward.reward_ingredient,
         rl.rl_ingredient,
         train.train_ingredient,
+        encoder.encoder_ingredient
     ],
 )
 

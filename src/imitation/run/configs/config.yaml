@@ -2,13 +2,13 @@
 defaults:
     - state_only: "yes"
     - run_test: "no"
+    - use_encoder: "yes"
     - irl_algo: gail
     - env: seals_mountain_car_org
     - demonstrator: seals_mountain_car_seed_one
     - sacred: standard
     - seed: one
     - exec: cluster
-    - add_encoder: "no"
     - override /hydra/launcher: submitit_slurm
 
 

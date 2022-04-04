@@ -15,7 +15,7 @@ from imitation.algorithms.adversarial import gail as gail_algo
 from imitation.data import rollout
 from imitation.policies import serialize
 from imitation.scripts.common import common as common_config
-from imitation.scripts.common import demonstrations, reward, rl, train
+from imitation.scripts.common import demonstrations, reward, rl, train, encoder
 from imitation.scripts.config.train_adversarial import train_adversarial_ex
 
 
@@ -115,7 +115,7 @@ def train_adversarial(
 
     reward_net = reward.make_reward_net(venv)
 
-    encoder_net = reward.make_encoder_net(venv)
+    encoder_net = encoder.make_encoder_net(venv)
 
     logger.info(f"Using '{algo_cls}' algorithm")
     algorithm_kwargs = dict(algorithm_kwargs)

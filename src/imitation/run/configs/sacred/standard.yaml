@@ -30,6 +30,8 @@ train_adversarial:
                         use_state: ${state_only.use_state}
                         use_action: ${state_only.use_action}
                         use_next_state: ${state_only.use_next_state}
+        encoder:
+            use_encoder: ${use_encoder.value}
 
 eval_irl_policy:
     named_configs:

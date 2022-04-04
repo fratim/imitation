@@ -188,7 +188,12 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         self.venv = venv
         self.gen_algo = gen_algo
         self._reward_net = reward_net.to(gen_algo.device)
-        self._encoder_net = encoder_net.to(gen_algo.device)
+
+        if encoder_net is not None:
+            self._encoder_net = encoder_net.to(gen_algo.device)
+        else:
+            self._encoder_net = None
+
         self._log_dir = log_dir
 
         # Create graph for optimising/recording stats on discriminator
@@ -200,10 +205,11 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             self._reward_net.parameters(),
             **self._disc_opt_kwargs,
         )
-        self._encoder_opt = self._disc_opt_cls(
-            self._encoder_net.parameters(),
-            **self._disc_opt_kwargs,
-        )
+        if self._encoder_net is not None:
+            self._encoder_opt = self._disc_opt_cls(
+                self._encoder_net.parameters(),
+                **self._disc_opt_kwargs,
+            )
 
         if self._init_tensorboard:
             logging.info("building summary directory at " + self._log_dir)
@@ -405,7 +411,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             )
 
             ## we want the discriminator to predict that this is actually the expert
-            labels = batch["labels_gen_is_one"]*0
+            labels = batch["labels_gen_is_one"]*0 # TODO is this correct?
 
             loss = F.binary_cross_entropy_with_logits(
                 disc_logits,
@@ -503,8 +509,9 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                 with networks.training(self.reward_train):
                     # switch to training mode (affects dropout, normalization)
                     self.train_disc()
-                with networks.training(self._encoder_net):
-                    self.train_enc()
+                if self._encoder_net is not None:
+                    with networks.training(self._encoder_net):
+                        self.train_enc()
             if callback:
                 callback(r)
             self.logger.dump(self._global_step)
