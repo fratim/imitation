@@ -119,6 +119,10 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         reward_net: reward_nets.RewardNet,
         encoder_net: reward_nets.RewardNet,
         n_disc_updates_per_round: int = 2,
+        disc_lr: float = 1e-1,
+        n_enc_updates_per_round: int = 2,
+        enc_lr: float = 1e-3,
+        enc_weight_decay: float = 0.0,
         log_dir: str = "output/",
         normalize_reward: bool = True,
         disc_opt_cls: Type[th.optim.Optimizer] = th.optim.Adam,
@@ -192,6 +196,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         self._disc_step = 0
         self._encoder_step = 0
         self.n_disc_updates_per_round = n_disc_updates_per_round
+        self.n_enc_updates_per_round = n_enc_updates_per_round
 
         self.debug_use_ground_truth = debug_use_ground_truth
         self.venv = venv
@@ -210,14 +215,19 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         self._disc_opt_kwargs = disc_opt_kwargs or {}
         self._init_tensorboard = init_tensorboard
         self._init_tensorboard_graph = init_tensorboard_graph
+
+        assert self._disc_opt_kwargs == {}
         self._disc_opt = self._disc_opt_cls(
             self._reward_net.parameters(),
-            **self._disc_opt_kwargs,
+            lr=disc_lr
         )
+
         if self._encoder_net is not None:
+            assert self._disc_opt_kwargs == {}
             self._encoder_opt = self._disc_opt_cls(
                 self._encoder_net.parameters(),
-                **self._disc_opt_kwargs,
+                lr=enc_lr,
+                weight_decay=enc_weight_decay
             )
 
         if self._init_tensorboard:
@@ -518,14 +528,22 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             f"total_timesteps={total_timesteps})!"
         )
         for r in tqdm.tqdm(range(0, n_rounds), desc="round"):
+            # train agent
             self.train_gen(self.gen_train_timesteps)
-            for _ in range(self.n_disc_updates_per_round):
+
+            for j in range(self.n_disc_updates_per_round):
                 with networks.training(self.reward_train):
                     # switch to training mode (affects dropout, normalization)
                     self.train_disc(invert_states_expert=invert_states_expert)
                 if self._encoder_net is not None:
-                    with networks.training(self._encoder_net):
-                        self.train_enc()
+                    if self.n_enc_updates_per_round >= 1:
+                        n_enc_updates = 1 if j % self.n_enc_updates_per_round == 0 else 0
+                    else:
+                        n_enc_updates = int(np.around(1/self.n_enc_updates_per_round))
+                    for _ in range(n_enc_updates):
+                        with networks.training(self._encoder_net):
+                            self.train_enc()
+
             if callback:
                 callback(r)
             self.logger.dump(self._global_step)

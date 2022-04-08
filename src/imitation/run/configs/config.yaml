@@ -3,7 +3,7 @@ defaults:
     - state_only: "yes"
     - run_test: "no"
     - use_encoder: "yes"
-    - invert_states_expert: "no"
+    - invert_states_expert: "yes"
     - irl_algo: gail
     - env: seals_mountain_car_org
     - demonstrator: seals_mountain_car_seed_one
@@ -21,7 +21,7 @@ hydra:
         cpus_per_task: 8
         gpus_per_node: 1
         tasks_per_node: 1
-        mem_gb: 48
+        mem_gb: 24
         nodes: 1
         name: testscript
         _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher

@@ -171,6 +171,7 @@ def build_mlp(
 
     # Final layer
     layers[f"{prefix}dense_final"] = nn.Linear(prev_size, out_size, bias=use_bias)
+    th.nn.init.normal_(layers[f"{prefix}dense_final"].weight, std=0.01) if use_bias else None
 
     if squeeze_output:
         if out_size != 1:

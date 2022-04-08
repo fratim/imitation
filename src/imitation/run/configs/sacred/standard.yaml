@@ -1,3 +1,8 @@
+
+n_enc_updates_per_round: 16
+enc_lr: 1e-3
+disc_lr: 1e-3
+
 train_rl:
     named_configs: ${run_test.train_rl.named_configs}
     config_updates:
@@ -33,6 +38,11 @@ train_adversarial:
         encoder:
             use_encoder: ${use_encoder.value}
         invert_states_expert: ${invert_states_expert.value}
+        algorithm_kwargs:
+            n_enc_updates_per_round: ${sacred.n_enc_updates_per_round}
+            enc_lr: ${sacred.enc_lr}
+            disc_lr: ${sacred.disc_lr}
+            enc_weight_decay: 0.0
 
 eval_irl_policy:
     named_configs:

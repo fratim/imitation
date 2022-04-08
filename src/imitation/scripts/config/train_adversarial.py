@@ -28,6 +28,10 @@ def defaults():
     algorithm_kwargs = dict(
         demo_batch_size=1024,  # Number of expert samples per discriminator update
         n_disc_updates_per_round=4,  # Num discriminator updates per generator round
+        disc_lr=1e-3,
+        n_enc_updates_per_round=4,
+        enc_lr=1e-3,
+        enc_weight_decay=0,  # 1e-4
         gen_replay_buffer_capacity=2048,
     )
     algorithm_specific = {}  # algorithm_specific[algorithm] is merged with config
@@ -163,6 +167,10 @@ def half_cheetah():
     algorithm_kwargs = dict(
         # Number of discriminator updates after each round of generator updates
         n_disc_updates_per_round=16,
+        disc_lr=1e-3,
+        n_enc_updates_per_round=16,
+        enc_lr=1e-3,
+        enc_weight_decay=0,  # 1e-4
         # Equivalent to no replay buffer if batch size is the same
         gen_replay_buffer_capacity=16384,
         demo_batch_size=8192,
@@ -191,6 +199,10 @@ def seals_half_cheetah():
     algorithm_kwargs = dict(
         # Number of discriminator updates after each round of generator updates
         n_disc_updates_per_round=16,
+        disc_lr=1e-3,
+        n_enc_updates_per_round=16,
+        enc_lr=1e-3,
+        enc_weight_decay=0,  # 1e-4
         # Equivalent to no replay buffer if batch size is the same
         gen_replay_buffer_capacity=16384,
         demo_batch_size=8192,
@@ -220,6 +232,10 @@ def seals_half_cheetah_trunc():
     algorithm_kwargs = dict(
         # Number of discriminator updates after each round of generator updates
         n_disc_updates_per_round=16,
+        disc_lr=1e-3,
+        n_enc_updates_per_round=16,
+        enc_lr=1e-3,
+        enc_weight_decay=0,  # 1e-4
         # Equivalent to no replay buffer if batch size is the same
         gen_replay_buffer_capacity=16384,
         demo_batch_size=8192,
@@ -249,6 +265,10 @@ def seals_hopper():
     algorithm_kwargs = dict(
         # Number of discriminator updates after each round of generator updates
         n_disc_updates_per_round=16,
+        disc_lr=1e-3,
+        n_enc_updates_per_round=16,
+        enc_lr=1e-3,
+        enc_weight_decay=0,  # 1e-4
         # Equivalent to no replay buffer if batch size is the same
         gen_replay_buffer_capacity=16384,
         demo_batch_size=8192,
@@ -284,6 +304,10 @@ def seals_hopper_trunc():
     algorithm_kwargs = dict(
         # Number of discriminator updates after each round of generator updates
         n_disc_updates_per_round=16,
+        disc_lr=1e-3,
+        n_enc_updates_per_round=16,
+        enc_lr=1e-3,
+        enc_weight_decay=0,#1e-4
         # Equivalent to no replay buffer if batch size is the same
         gen_replay_buffer_capacity=16384,
         demo_batch_size=8192,
@@ -326,6 +350,10 @@ def seals_swimmer():
     algorithm_kwargs = dict(
         # Number of discriminator updates after each round of generator updates
         n_disc_updates_per_round=16,
+        disc_lr=1e-3,
+        n_enc_updates_per_round=16,
+        enc_lr=1e-3,
+        enc_weight_decay=0,  # 1e-4
         # Equivalent to no replay buffer if batch size is the same
         gen_replay_buffer_capacity=16384,
         demo_batch_size=8192,
@@ -355,6 +383,10 @@ def seals_walker():
     algorithm_kwargs = dict(
         # Number of discriminator updates after each round of generator updates
         n_disc_updates_per_round=16,
+        disc_lr=1e-3,
+        n_enc_updates_per_round=16,
+        enc_lr=1e-3,
+        enc_weight_decay=0,  # 1e-4
         # Equivalent to no replay buffer if batch size is the same
         gen_replay_buffer_capacity=16384,
         demo_batch_size=8192,
@@ -390,6 +422,10 @@ def seals_walker_trunc():
     algorithm_kwargs = dict(
         # Number of discriminator updates after each round of generator updates
         n_disc_updates_per_round=16,
+        disc_lr=1e-3,
+        n_enc_updates_per_round=16,
+        enc_lr=1e-3,
+        enc_weight_decay=0,  # 1e-4
         # Equivalent to no replay buffer if batch size is the same
         gen_replay_buffer_capacity=16384,
         demo_batch_size=8192,
@@ -411,4 +447,6 @@ def fast():
     algorithm_kwargs = dict(
         demo_batch_size=1,
         n_disc_updates_per_round=4,
+        disc_lr=1e-3,
+        n_enc_updates_per_round=4,
     )
