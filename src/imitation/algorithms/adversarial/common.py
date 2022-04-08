@@ -20,12 +20,12 @@ from imitation.rewards import reward_nets, reward_wrapper
 from imitation.util import logger, networks, util
 
 
-SWITCH_X_AND_Z = False
-
 def compute_train_stats(
     disc_logits_gen_is_high: th.Tensor,
     labels_gen_is_one: th.Tensor,
     disc_loss: th.Tensor,
+    prefix="",
+    encoder_net=None
 ) -> Mapping[str, float]:
     """Train statistics for GAIL/AIRL discriminator.
 
@@ -73,21 +73,27 @@ def compute_train_stats(
         entropy = th.mean(label_dist.entropy())
 
     pairs = [
-        ("disc_loss", float(th.mean(disc_loss))),
+        (f"disc_loss{prefix}", float(th.mean(disc_loss))),
         # accuracy, as well as accuracy on *just* expert examples and *just*
         # generated examples
-        ("disc_acc", float(acc)),
-        ("disc_acc_expert", float(expert_acc)),
-        ("disc_acc_gen", float(generated_acc)),
+        (f"disc_acc{prefix}", float(acc)),
+        (f"disc_acc_expert{prefix}", float(expert_acc)),
+        (f"disc_acc_gen{prefix}", float(generated_acc)),
         # entropy of the predicted label distribution, averaged equally across
         # both classes (if this drops then disc is very good or has given up)
-        ("disc_entropy", float(entropy)),
+        (f"disc_entropy{prefix}", float(entropy)),
         # true number of expert demos and predicted number of expert demos
-        ("disc_proportion_expert_true", float(pct_expert)),
-        ("disc_proportion_expert_pred", float(pct_expert_pred)),
-        ("n_expert", float(n_expert)),
-        ("n_generated", float(n_generated)),
+        (f"disc_proportion_expert_true{prefix}", float(pct_expert)),
+        (f"disc_proportion_expert_pred{prefix}", float(pct_expert_pred)),
+        (f"n_expert{prefix}", float(n_expert)),
+        (f"n_generated{prefix}", float(n_generated)),
     ]  # type: Sequence[Tuple[str, float]]
+
+    if encoder_net is not None:
+        weights_array = encoder_net.mlp.dense_final.weight.cpu().numpy().flatten()
+        for i in range(len(weights_array)):
+            pairs = pairs + [(f"zenc_weight_{i}", float(weights_array[i]))]
+
     return collections.OrderedDict(pairs)
 
 
@@ -304,14 +310,13 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         )
         self._endless_expert_iterator = util.endless_iter(self._demo_data_loader)
 
-    def _next_expert_batch(self) -> Mapping:
-        return next(self._endless_expert_iterator)
 
     def train_disc(
         self,
         *,
         expert_samples: Optional[Mapping] = None,
         gen_samples: Optional[Mapping] = None,
+        invert_states_expert = False,
     ) -> Optional[Mapping[str, float]]:
         """Perform a single discriminator update, optionally using provided samples.
 
@@ -339,6 +344,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             batch = self._make_disc_train_batch(
                 gen_samples=gen_samples,
                 expert_samples=expert_samples,
+                invert_states_expert=invert_states_expert
             )
             disc_logits = self.logits_gen_is_high(
                 batch["state"],
@@ -363,7 +369,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                 train_stats = compute_train_stats(
                     disc_logits,
                     batch["labels_gen_is_one"],
-                    loss,
+                    loss
                 )
             self.logger.record("global_step", self._global_step)
             for k, v in train_stats.items():
@@ -428,21 +434,25 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             self._encoder_step += 1
 
             # compute/write stats and TensorBoard data
-            # with th.no_grad():
-            #     train_stats = compute_train_stats(
-            #         disc_logits,
-            #         batch["labels_gen_is_one"],
-            #         loss,
-            #     )
-            # self.logger.record("global_step", self._global_step)
-            # for k, v in train_stats.items():
-            #     self.logger.record(k, v)
-            # self.logger.dump(self._disc_step)
-            # if write_summaries:
-            #     self._summary_writer.add_histogram("disc_logits", disc_logits.detach())
+            with th.no_grad():
+                train_stats = compute_train_stats(
+                    disc_logits,
+                    batch["labels_gen_is_one"],
+                    loss,
+                    prefix="_enc",
+                    encoder_net=self._encoder_net
+                )
+            self.logger.record("global_step", self._global_step)
+            for k, v in train_stats.items():
+                self.logger.record(k, v)
+            self.logger.dump(self._encoder_step)
+            if write_summaries:
+                self._summary_writer.add_histogram("disc_logits_enc", disc_logits.detach())
 
         return None
 
+    def _next_expert_batch(self) -> Mapping:
+        return next(self._endless_expert_iterator)
 
     def train_gen(
         self,
@@ -484,6 +494,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         self,
         total_timesteps: int,
         callback: Optional[Callable[[int], None]] = None,
+        invert_states_expert = False,
     ) -> None:
         """Alternates between training the generator and discriminator.
 
@@ -511,7 +522,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             for _ in range(self.n_disc_updates_per_round):
                 with networks.training(self.reward_train):
                     # switch to training mode (affects dropout, normalization)
-                    self.train_disc()
+                    self.train_disc(invert_states_expert=invert_states_expert)
                 if self._encoder_net is not None:
                     with networks.training(self._encoder_net):
                         self.train_enc()
@@ -528,6 +539,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         *,
         gen_samples: Optional[Mapping] = None,
         expert_samples: Optional[Mapping] = None,
+        invert_states_expert=False,
     ) -> Mapping[str, th.Tensor]:
         """Build and return training batch for the next discriminator update.
 
@@ -587,15 +599,18 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         assert n_gen == len(gen_samples["acts"])
         assert n_gen == len(gen_samples["next_obs"])
 
-        import pdb
-        pdb.set_trace()
-
-        # TODO-TF how to treat actions? yet to be solved
-        if hasattr(self._reward_net, "target_states"):
+        if hasattr(self._reward_net, "target_states") and not invert_states_expert:
             target_states = self._reward_net.target_states
             obs = np.concatenate([expert_samples["obs"][:, target_states], gen_samples["obs"][:, target_states]])
             acts = np.concatenate([expert_samples["acts"][:, (0, )], gen_samples["acts"][:, (0, )]]) # TODO-TF fix this
             next_obs = np.concatenate([expert_samples["next_obs"][:, target_states], gen_samples["next_obs"][:, target_states]])
+        elif hasattr(self._reward_net, "target_states") and invert_states_expert:
+            target_states = self._reward_net.target_states
+            target_states_inverted = (2, 1, 0)
+            obs = np.concatenate([expert_samples["obs"][:, target_states_inverted], gen_samples["obs"][:, target_states]])
+            acts = np.concatenate([expert_samples["acts"][:, (0,)], gen_samples["acts"][:, (0,)]])  # TODO-TF fix this
+            next_obs = np.concatenate(
+                [expert_samples["next_obs"][:, target_states_inverted], gen_samples["next_obs"][:, target_states]])
         else:
             obs = np.concatenate([expert_samples["obs"], gen_samples["obs"]])
             acts = np.concatenate([expert_samples["acts"], gen_samples["acts"]])
@@ -740,12 +755,21 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             next_obs,
             dones,
         )
+
+        labels_is_one_th = self._torchify_array(labels_gen_is_one)
+
+
+        # ODO use .predict instead of .forward here?
+        if self._encoder_net is not None:
+            obs_th[labels_is_one_th.bool()] = self._encoder_net.forward(obs_th[labels_is_one_th.bool()])
+            next_obs_th[labels_is_one_th.bool()] = self._encoder_net.forward(next_obs_th[labels_is_one_th.bool()])
+
         batch_dict = {
             "state": obs_th,
             "action": acts_th,
             "next_state": next_obs_th,
             "done": dones_th,
-            "labels_gen_is_one": self._torchify_array(labels_gen_is_one),
+            "labels_gen_is_one": labels_is_one_th,
             "log_policy_act_prob": None,
         }
 

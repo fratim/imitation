@@ -34,6 +34,7 @@ def defaults():
 
     checkpoint_interval = 0  # Num epochs between checkpoints (<0 disables)
 
+    invert_states_expert = False
 
 @train_adversarial_ex.config
 def aliases_default_gen_batch_size(algorithm_kwargs, rl):

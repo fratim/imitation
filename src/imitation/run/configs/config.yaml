@@ -3,6 +3,7 @@ defaults:
     - state_only: "yes"
     - run_test: "no"
     - use_encoder: "yes"
+    - invert_states_expert: "no"
     - irl_algo: gail
     - env: seals_mountain_car_org
     - demonstrator: seals_mountain_car_seed_one
