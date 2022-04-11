@@ -147,10 +147,16 @@ def train_adversarial(
     if checkpoint_interval >= 0:
         save(trainer, os.path.join(log_dir, "checkpoints", "final"))
 
-    return {
+    return_obj = {
         "imit_stats": train.eval_policy(trainer.policy, trainer.venv_train),
         "expert_stats": rollout.rollout_stats(expert_trajs),
     }
+
+    relative_mean_reward_imitator = return_obj["imit_stats"]["return_mean"] / return_obj["expert_stats"]["return_mean"]
+
+    return relative_mean_reward_imitator
+
+
 
 
 @train_adversarial_ex.command

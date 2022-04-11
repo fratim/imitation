@@ -4,6 +4,7 @@ import sacred
 
 from imitation.rewards import reward_nets
 from imitation.scripts.common import common, demonstrations, reward, rl, train, encoder
+from imitation.util import networks
 
 train_adversarial_ex = sacred.Experiment(
     "train_adversarial",
@@ -94,6 +95,12 @@ def mountain_car_trunc():
         algorithm_specific=dict(
             airl=dict(
                 net_cls=reward_nets.BasicShapedRewardNetTruncated,
+                net_kwargs=dict(
+                    target_states=tuple((0,)),
+                )
+            ),
+            gail=dict(
+                net_cls=reward_nets.BasicShapedRewardNet,
                 net_kwargs=dict(
                     target_states=tuple((0,)),
                 )

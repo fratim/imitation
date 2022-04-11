@@ -75,7 +75,7 @@ class RewardNet(nn.Module, abc.ABC):
             observations, actions, next observations and dones.
         """
         state_th = th.as_tensor(state, device=self.device)
-        action_th = th.as_tensor(action, device=self.device)
+        action_th = th.as_tensor(action, device=self.device) if action is not None else None
         next_state_th = th.as_tensor(next_state, device=self.device)
         done_th = th.as_tensor(done, device=self.device)
 
@@ -91,7 +91,8 @@ class RewardNet(nn.Module, abc.ABC):
             action_th,
             self.action_space,
             self.normalize_images,
-        )
+        ) if action_th is not None else None
+
         next_state_th = preprocessing.preprocess_obs(
             next_state_th,
             self.observation_space,
@@ -101,7 +102,8 @@ class RewardNet(nn.Module, abc.ABC):
 
         n_gen = len(state_th)
         assert state_th.shape == next_state_th.shape
-        assert len(action_th) == n_gen
+        if action_th is not None:
+            assert len(action_th) == n_gen
 
         return state_th, action_th, next_state_th, done_th
 
@@ -345,8 +347,7 @@ class BasicEncoderNet(RewardNet):
             kwargs: passed straight through to `build_mlp`.
         """
         super().__init__(observation_space, action_space)
-        # combined_size = preprocessing.get_flattened_obs_dim(observation_space)
-        combined_size = 3 # truncated version
+        combined_size = preprocessing.get_flattened_obs_dim(observation_space)  # truncated version
 
         full_build_mlp_kwargs = {
             "hid_sizes": [],
@@ -407,7 +408,8 @@ class BasicRewardNetTruncated(BasicRewardNet):
             use_state=use_state,
             use_action=use_action,
             use_next_state=use_next_state,
-            use_done=use_done
+            use_done=use_done,
+            **kwargs
         )
 
     def forward(
@@ -418,8 +420,9 @@ class BasicRewardNetTruncated(BasicRewardNet):
         done: th.Tensor,
     ):
 
-        state = state[:, self.target_states]
-        next_state = next_state[:, self.target_states]
+        if not tuple(range(state.shape[1])) == self.target_states:
+            state = state[:, self.target_states]
+            next_state = next_state[:, self.target_states]
 
         return super().forward(state, action, next_state, done)
 
@@ -431,8 +434,9 @@ class BasicRewardNetTruncated(BasicRewardNet):
         done: np.ndarray,
     ) -> np.ndarray:
 
-        state = state[:, self.target_states]
-        next_state = next_state[:, self.target_states]
+        if not tuple(range(state.shape[1])) == self.target_states:
+            state = state[:, self.target_states]
+            next_state = next_state[:, self.target_states]
 
         return super().predict(state, action, next_state, done)
 

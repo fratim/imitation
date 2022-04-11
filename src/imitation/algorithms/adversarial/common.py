@@ -434,7 +434,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
 
             loss = F.binary_cross_entropy_with_logits(
                 disc_logits,
-                labels.float() ## ODO make sure this is correct,
+                labels.float() ## TODO make sure this is correct,
             )
 
             # do gradient step
@@ -542,7 +542,8 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                         n_enc_updates = int(np.around(1/self.n_enc_updates_per_round))
                     for _ in range(n_enc_updates):
                         with networks.training(self._encoder_net):
-                            self.train_enc()
+                            with networks.evaluating(self.reward_train):
+                                self.train_enc()
 
             if callback:
                 callback(r)
@@ -617,21 +618,25 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         assert n_gen == len(gen_samples["acts"])
         assert n_gen == len(gen_samples["next_obs"])
 
-        if hasattr(self._reward_net, "target_states") and not invert_states_expert:
+        if hasattr(self._reward_net, "target_states") and not invert_states_expert and tuple(range(expert_samples["obs"].shape[1])) == self._reward_net.target_states:
+            obs = np.concatenate([expert_samples["obs"], gen_samples["obs"]])
+            acts = None
+            next_obs = np.concatenate([expert_samples["next_obs"], gen_samples["next_obs"]])
+        elif hasattr(self._reward_net, "target_states") and not invert_states_expert:
             target_states = self._reward_net.target_states
             obs = np.concatenate([expert_samples["obs"][:, target_states], gen_samples["obs"][:, target_states]])
-            acts = np.concatenate([expert_samples["acts"][:, (0, )], gen_samples["acts"][:, (0, )]]) # TODO-TF fix this
+            acts = None
             next_obs = np.concatenate([expert_samples["next_obs"][:, target_states], gen_samples["next_obs"][:, target_states]])
         elif hasattr(self._reward_net, "target_states") and invert_states_expert:
             target_states = self._reward_net.target_states
             target_states_inverted = (2, 1, 0)
             obs = np.concatenate([expert_samples["obs"][:, target_states_inverted], gen_samples["obs"][:, target_states]])
-            acts = np.concatenate([expert_samples["acts"][:, (0,)], gen_samples["acts"][:, (0,)]])  # TODO-TF fix this
+            acts = None
             next_obs = np.concatenate(
                 [expert_samples["next_obs"][:, target_states_inverted], gen_samples["next_obs"][:, target_states]])
         else:
             obs = np.concatenate([expert_samples["obs"], gen_samples["obs"]])
-            acts = np.concatenate([expert_samples["acts"], gen_samples["acts"]])
+            acts = None
             next_obs = np.concatenate([expert_samples["next_obs"], gen_samples["next_obs"]])
 
 
@@ -734,14 +739,14 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
 
 
         # TODO-TF how to treat actions? yet to be solved
-        if hasattr(self._reward_net, "target_states"):
+        if hasattr(self._reward_net, "target_states") and tuple(range(gen_samples["obs"].shape[1])) != self._reward_net.target_states:
             target_states = self._reward_net.target_states
             obs = gen_samples["obs"][:, target_states]
-            acts = gen_samples["acts"][:, (0, )] # TODO-TF fix this
+            acts = None
             next_obs = gen_samples["next_obs"][:, target_states]
         else:
-            obs = gen_samples["obs"] # TODO there was a huge bug here...
-            acts = gen_samples["acts"]
+            obs = gen_samples["obs"]
+            acts = None
             next_obs = gen_samples["next_obs"]
 
 
