@@ -39,7 +39,34 @@ def defaults():
 
     checkpoint_interval = 0  # Num epochs between checkpoints (<0 disables)
 
-    invert_states_expert = False
+@train_adversarial_ex.named_config
+def identity():
+    encoder_learner_kwargs = dict(
+        encoder_type="identity",
+        target_states=None
+    )
+
+@train_adversarial_ex.named_config
+def reduced():
+    encoder_learner_kwargs = dict(
+        encoder_type="reduction",
+        target_states=(0, 1, 2)
+    )
+
+@train_adversarial_ex.named_config
+def network():
+    encoder_learner_kwargs = dict(
+        encoder_type="network",
+        target_states=None
+    )
+
+@train_adversarial_ex.named_config
+def reduced_network():
+    encoder_learner_kwargs = dict(
+        encoder_type="reduction_followed_by_network",
+        target_states=(0, 1, 2)
+    )
+
 
 @train_adversarial_ex.config
 def aliases_default_gen_batch_size(algorithm_kwargs, rl):
@@ -87,59 +114,16 @@ def mountain_car():
     common = dict(env_name="MountainCar-v0")
     algorithm_kwargs = {"allow_variable_horizon": True}
 
-@train_adversarial_ex.named_config
-def mountain_car_trunc():
-    common = dict(env_name="MountainCar-v0")
-    algorithm_kwargs = {"allow_variable_horizon": True}
-    reward = dict(
-        algorithm_specific=dict(
-            airl=dict(
-                net_cls=reward_nets.BasicShapedRewardNetTruncated,
-                net_kwargs=dict(
-                    target_states=tuple((0,)),
-                )
-            ),
-            gail=dict(
-                net_cls=reward_nets.BasicShapedRewardNet,
-                net_kwargs=dict(
-                    target_states=tuple((0,)),
-                )
-            ),
-        ),
-    )
-
 
 @train_adversarial_ex.named_config
 def seals_mountain_car():
     common = dict(env_name="seals/MountainCar-v0")
 
 
-@train_adversarial_ex.named_config
-def seals_mountain_car_trunc():
-    common = dict(env_name="seals/MountainCar-v0")
-    reward = dict(
-        algorithm_specific=dict(
-            airl=dict(
-                net_cls=reward_nets.BasicShapedRewardNetTruncated,
-                net_kwargs=dict(
-                    target_states=tuple((0,)),
-                )
-            ),
-            gail=dict(
-                net_cls=reward_nets.BasicRewardNetTruncated,
-                net_kwargs=dict(
-                    target_states=tuple((0,)),
-                )
-            ),
-        ),
-    )
-
 
 @train_adversarial_ex.named_config
 def pendulum():
     common = dict(env_name="Pendulum-v1")
-
-
 
 # Standard MuJoCo Gym environment named configs
 
@@ -157,19 +141,10 @@ def half_cheetah():
     common = dict(env_name="HalfCheetah-v2")
     rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
     algorithm_specific = dict(
-        airl=dict(total_timesteps=int(5e6)),
         gail=dict(total_timesteps=int(8e6)),
     )
     reward = dict(
-        algorithm_specific=dict(
-            airl=dict(
-                net_cls=reward_nets.BasicShapedRewardNet,
-                net_kwargs=dict(
-                    reward_hid_sizes=(32,),
-                    potential_hid_sizes=(32,),
-                ),
-            ),
-        ),
+        algorithm_specific=dict(),
     )
     algorithm_kwargs = dict(
         # Number of discriminator updates after each round of generator updates
@@ -189,52 +164,10 @@ def seals_half_cheetah():
     common = dict(env_name="seals/HalfCheetah-v0")
     rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
     algorithm_specific = dict(
-        airl=dict(total_timesteps=int(5e6)),
         gail=dict(total_timesteps=int(8e6)),
     )
     reward = dict(
-        algorithm_specific=dict(
-            airl=dict(
-                net_cls=reward_nets.BasicShapedRewardNet,
-                net_kwargs=dict(
-                    reward_hid_sizes=(32,),
-                    potential_hid_sizes=(32,),
-                ),
-            ),
-        ),
-    )
-    algorithm_kwargs = dict(
-        # Number of discriminator updates after each round of generator updates
-        n_disc_updates_per_round=16,
-        disc_lr=1e-3,
-        n_enc_updates_per_round=16,
-        enc_lr=1e-3,
-        enc_weight_decay=0,  # 1e-4
-        # Equivalent to no replay buffer if batch size is the same
-        gen_replay_buffer_capacity=16384,
-        demo_batch_size=8192,
-    )
-
-@train_adversarial_ex.named_config
-def seals_half_cheetah_trunc():
-    locals().update(**MUJOCO_SHARED_LOCALS)
-    common = dict(env_name="seals/HalfCheetah-v0")
-    rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
-    algorithm_specific = dict(
-        airl=dict(total_timesteps=int(5e6)),
-        gail=dict(total_timesteps=int(8e6)),
-    )
-    reward = dict(
-        algorithm_specific=dict(
-            airl=dict(
-                net_cls=reward_nets.BasicShapedRewardNetTruncated,
-                net_kwargs=dict(
-                    reward_hid_sizes=(32,),
-                    potential_hid_sizes=(32,),
-                    target_states=tuple((0, 1, 2)),
-                ),
-            ),
-        ),
+        algorithm_specific=dict(),
     )
     algorithm_kwargs = dict(
         # Number of discriminator updates after each round of generator updates
@@ -255,17 +188,13 @@ def seals_hopper():
     common = dict(env_name="seals/Hopper-v0")
     rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
     algorithm_specific = dict(
-        airl=dict(total_timesteps=int(5e6)),
         gail=dict(total_timesteps=int(8e6)),
     )
     reward = dict(
         algorithm_specific=dict(
-            airl=dict(
-                net_cls=reward_nets.BasicShapedRewardNet,
-                net_kwargs=dict(
-                    reward_hid_sizes=(32,),
-                    potential_hid_sizes=(32,),
-                ),
+            gail=dict(
+                net_cls=reward_nets.BasicRewardNet,
+                net_kwargs=dict(),
             ),
         ),
     )
@@ -280,46 +209,6 @@ def seals_hopper():
         gen_replay_buffer_capacity=16384,
         demo_batch_size=8192,
     )
-
-@train_adversarial_ex.named_config
-def seals_hopper_trunc():
-    locals().update(**MUJOCO_SHARED_LOCALS)
-    common = dict(env_name="seals/Hopper-v0")
-    rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
-    algorithm_specific = dict(
-        airl=dict(total_timesteps=int(5e6)),
-        gail=dict(total_timesteps=int(8e6)),
-    )
-    reward = dict(
-        algorithm_specific=dict(
-            airl=dict(
-                net_cls=reward_nets.BasicShapedRewardNetTruncated,
-                net_kwargs=dict(
-                    reward_hid_sizes=(32,),
-                    potential_hid_sizes=(32,),
-                    target_states=tuple((0, 1, 2)),
-                ),
-            ),
-            gail=dict(
-                net_cls=reward_nets.BasicRewardNetTruncated,
-                net_kwargs=dict(
-                    target_states=tuple((0, 1, 2)),
-                ),
-            ),
-        ),
-    )
-    algorithm_kwargs = dict(
-        # Number of discriminator updates after each round of generator updates
-        n_disc_updates_per_round=16,
-        disc_lr=1e-3,
-        n_enc_updates_per_round=16,
-        enc_lr=1e-3,
-        enc_weight_decay=0,#1e-4
-        # Equivalent to no replay buffer if batch size is the same
-        gen_replay_buffer_capacity=16384,
-        demo_batch_size=8192,
-    )
-
 
 @train_adversarial_ex.named_config
 def seals_humanoid():
@@ -340,19 +229,10 @@ def seals_swimmer():
     common = dict(env_name="seals/Swimmer-v0")
     rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
     algorithm_specific = dict(
-        airl=dict(total_timesteps=int(5e6)),
         gail=dict(total_timesteps=int(8e6)),
     )
     reward = dict(
-        algorithm_specific=dict(
-            airl=dict(
-                net_cls=reward_nets.BasicShapedRewardNet,
-                net_kwargs=dict(
-                    reward_hid_sizes=(32,),
-                    potential_hid_sizes=(32,),
-                ),
-            ),
-        ),
+        algorithm_specific=dict(),
     )
     algorithm_kwargs = dict(
         # Number of discriminator updates after each round of generator updates
@@ -373,18 +253,10 @@ def seals_walker():
     common = dict(env_name="seals/Walker2d-v0")
     rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
     algorithm_specific = dict(
-        airl=dict(total_timesteps=int(5e6)),
         gail=dict(total_timesteps=int(8e6)),
     )
     reward = dict(
         algorithm_specific=dict(
-            airl=dict(
-                net_cls=reward_nets.BasicShapedRewardNet,
-                net_kwargs=dict(
-                    reward_hid_sizes=(32,),
-                    potential_hid_sizes=(32,),
-                ),
-            ),
         ),
     )
     algorithm_kwargs = dict(
@@ -399,44 +271,6 @@ def seals_walker():
         demo_batch_size=8192,
     )
 
-@train_adversarial_ex.named_config
-def seals_walker_trunc():
-    locals().update(**MUJOCO_SHARED_LOCALS)
-    common = dict(env_name="seals/Walker2d-v0")
-    rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
-    algorithm_specific = dict(
-        airl=dict(total_timesteps=int(5e6)),
-        gail=dict(total_timesteps=int(8e6)),
-    )
-    reward = dict(
-        algorithm_specific=dict(
-            airl=dict(
-                net_cls=reward_nets.BasicShapedRewardNetTruncated,
-                net_kwargs=dict(
-                    reward_hid_sizes=(32,),
-                    potential_hid_sizes=(32,),
-                    target_states=tuple((0, 1, 2))
-                ),
-            ),
-            gail=dict(
-                net_cls=reward_nets.BasicRewardNetTruncated,
-                net_kwargs=dict(
-                    target_states=tuple((0, 1, 2)),
-                ),
-            ),
-        ),
-    )
-    algorithm_kwargs = dict(
-        # Number of discriminator updates after each round of generator updates
-        n_disc_updates_per_round=16,
-        disc_lr=1e-3,
-        n_enc_updates_per_round=16,
-        enc_lr=1e-3,
-        enc_weight_decay=0,  # 1e-4
-        # Equivalent to no replay buffer if batch size is the same
-        gen_replay_buffer_capacity=16384,
-        demo_batch_size=8192,
-    )
 
 # Debug configs
 

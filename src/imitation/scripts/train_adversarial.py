@@ -73,7 +73,8 @@ def train_adversarial(
     algorithm_kwargs: Mapping[str, Any],
     total_timesteps: int,
     checkpoint_interval: int,
-    invert_states_expert = False
+    encoder_learner_kwargs,
+    invert_states_expert = False,
 ) -> Mapping[str, Mapping[str, float]]:
     """Train an adversarial-network-based imitation learning algorithm.
 
@@ -114,9 +115,11 @@ def train_adversarial(
     venv = common_config.make_venv()
     gen_algo = rl.make_rl_algo(venv)
 
-    reward_net = reward.make_reward_net(venv)
+    encoder_net_expert = encoder.make_encoder_net(**demonstrations.get_encoder_kwargs(expert_trajs=expert_trajs))
 
-    encoder_net = encoder.make_encoder_net(venv)
+    encoder_net_learner = encoder.make_encoder_net(venv=venv, output_dim=encoder_net_expert.output_dimension, **encoder_learner_kwargs)
+
+    reward_net = reward.make_reward_net(input_dimension=encoder_net_expert.output_dimension*2)
 
     logger.info(f"Using '{algo_cls}' algorithm")
     algorithm_kwargs = dict(algorithm_kwargs)
@@ -126,6 +129,7 @@ def train_adversarial(
         # So do that here to avoid passing in invalid arguments to constructor.
         if k in algorithm_kwargs:
             del algorithm_kwargs[k]
+
     trainer = algo_cls(
         venv=venv,
         demonstrations=expert_trajs,
@@ -133,7 +137,8 @@ def train_adversarial(
         log_dir=log_dir,
         reward_net=reward_net,
         custom_logger=custom_logger,
-        encoder_net=encoder_net,
+        encoder_net=encoder_net_learner,
+        encoder_net_expert=encoder_net_expert,
         **algorithm_kwargs,
     )
 

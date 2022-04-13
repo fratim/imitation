@@ -48,7 +48,7 @@ def config_hook(config, command_name, logger):
 
 @reward_ingredient.capture
 def make_reward_net(
-    venv: vec_env.VecEnv,
+    input_dimension: int,
     net_cls: Type[reward_nets.RewardNet],
     net_kwargs: Mapping[str, Any],
 ) -> reward_nets.RewardNet:
@@ -64,8 +64,7 @@ def make_reward_net(
     """
 
     reward_net = net_cls(
-        venv.observation_space,
-        venv.action_space,
+        input_dimension=input_dimension,
         **net_kwargs,
     )
     logging.info(f"Reward network:\n {reward_net}")

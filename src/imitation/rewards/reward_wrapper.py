@@ -48,6 +48,7 @@ class RewardVecEnvWrapper(vec_env.VecEnvWrapper):
         self,
         venv: vec_env.VecEnv,
         reward_fn: common.RewardFn,
+        encoder,
         ep_history: int = 100,
     ):
         """Builds RewardVecEnvWrapper.
@@ -67,6 +68,7 @@ class RewardVecEnvWrapper(vec_env.VecEnvWrapper):
         self.reward_fn = reward_fn
         self._old_obs = None
         self._actions = None
+        self.encoder = encoder
         self.reset()
 
     def make_log_callback(self) -> WrappedRewardCallback:
@@ -99,7 +101,8 @@ class RewardVecEnvWrapper(vec_env.VecEnvWrapper):
             obs_fixed.append(single_obs)
         obs_fixed = np.stack(obs_fixed)
 
-        rews = self.reward_fn(self._old_obs, self._actions, obs_fixed, np.array(dones))
+        rews = self.reward_fn(self._old_obs, self._actions, obs_fixed, np.array(dones), encoder_net=self.encoder)
+
         assert len(rews) == len(obs), "must return one rew for each env"
         done_mask = np.asarray(dones, dtype="bool").reshape((len(dones),))
 

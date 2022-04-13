@@ -18,9 +18,7 @@ class LogSigmoidRewardNet(reward_nets.RewardNet):
         """Builds LogSigmoidRewardNet to wrap `reward_net`."""
         # TODO(adam): make an explicit RewardNetWrapper class?
         super().__init__(
-            observation_space=base.observation_space,
-            action_space=base.action_space,
-            normalize_images=base.normalize_images,
+            input_dimension=base.input_dimension,
         )
         self.base = base
 
@@ -98,7 +96,7 @@ class GAIL(common.AdversarialTrainer):
         assert logits.shape == state.shape[:1]
         return logits
 
-    def logits_gen_is_high_with_encoder(
+    def logits_gen_is_high_for_encoder(
         self,
         state: th.Tensor,
         action: th.Tensor,
@@ -109,10 +107,7 @@ class GAIL(common.AdversarialTrainer):
         """Compute the discriminator's logits for each state-action sample."""
         del log_policy_act_prob
 
-        state_encoded = self._encoder_net.forward(state)
-        next_state_encoded = self._encoder_net.forward(next_state)
-
-        logits = self._reward_net.forward(state_encoded, action, next_state_encoded, done)
+        logits = self._reward_net.forward(state, action, next_state, done)
 
         assert logits.shape == state.shape[:1]
         return logits

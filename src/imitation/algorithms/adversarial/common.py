@@ -89,7 +89,7 @@ def compute_train_stats(
         (f"n_generated{prefix}", float(n_generated)),
     ]  # type: Sequence[Tuple[str, float]]
 
-    if encoder_net is not None:
+    if encoder_net is not None and encoder_net.type == "network":
         weights_array = encoder_net.mlp.dense_final.weight.cpu().numpy().flatten()
         for i in range(len(weights_array)):
             pairs = pairs + [(f"zenc_weight_{i}", float(weights_array[i]))]
@@ -118,6 +118,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         gen_algo: base_class.BaseAlgorithm,
         reward_net: reward_nets.RewardNet,
         encoder_net: reward_nets.RewardNet,
+        encoder_net_expert: reward_nets.RewardNet,
         n_disc_updates_per_round: int = 2,
         disc_lr: float = 1e-1,
         n_enc_updates_per_round: int = 2,
@@ -203,10 +204,11 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         self.gen_algo = gen_algo
         self._reward_net = reward_net.to(gen_algo.device)
 
-        if encoder_net is not None:
-            self._encoder_net = encoder_net.to(gen_algo.device)
-        else:
-            self._encoder_net = None
+        self._encoder_net = encoder_net
+        self._encoder_net_expert = encoder_net_expert
+
+        if self._encoder_net.type == "network":
+            self._encoder_net = self._encoder_net.to(gen_algo.device)
 
         self._log_dir = log_dir
 
@@ -222,8 +224,8 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             lr=disc_lr
         )
 
-        if self._encoder_net is not None:
-            assert self._disc_opt_kwargs == {}
+        assert self._disc_opt_kwargs == {}
+        if self._encoder_net.type == "network":
             self._encoder_opt = self._disc_opt_cls(
                 self._encoder_net.parameters(),
                 lr=enc_lr,
@@ -246,6 +248,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             venv = self.venv_wrapped = reward_wrapper.RewardVecEnvWrapper(
                 venv,
                 self.reward_train.predict,
+                encoder=self._encoder_net if self._encoder_net.type == "network" else None
             )
             self.gen_callback = self.venv_wrapped.make_log_callback()
         self.venv_train = self.venv_wrapped
@@ -421,7 +424,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             batch = self._make_enc_train_batch(
                 gen_samples=gen_samples,
             )
-            disc_logits = self.logits_gen_is_high_with_encoder(
+            disc_logits = self.logits_gen_is_high_for_encoder(
                 batch["state"],
                 batch["action"],
                 batch["next_state"],
@@ -531,23 +534,29 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             # train agent
             self.train_gen(self.gen_train_timesteps)
 
-            for j in range(self.n_disc_updates_per_round):
+            for iteration in range(self.n_disc_updates_per_round):
                 with networks.training(self.reward_train):
-                    # switch to training mode (affects dropout, normalization)
-                    self.train_disc(invert_states_expert=invert_states_expert)
-                if self._encoder_net is not None:
-                    if self.n_enc_updates_per_round >= 1:
-                        n_enc_updates = 1 if j % self.n_enc_updates_per_round == 0 else 0
+                    if self._encoder_net.type == "network": ## TODO (Tim) solve networks.evaluating hickupps for Basic Encoder type
+                        with networks.evaluating(self._encoder_net):
+                            self.train_disc(invert_states_expert=invert_states_expert)
                     else:
-                        n_enc_updates = int(np.around(1/self.n_enc_updates_per_round))
-                    for _ in range(n_enc_updates):
-                        with networks.training(self._encoder_net):
-                            with networks.evaluating(self.reward_train):
-                                self.train_enc()
+                        self.train_disc(invert_states_expert=invert_states_expert)
+
+                if self._encoder_net.type == "network":
+                    for _ in range(self.get_enc_updates(iteration)):
+                        with networks.training(self._encoder_net), networks.evaluating(self.reward_train):
+                            self.train_enc()
 
             if callback:
                 callback(r)
             self.logger.dump(self._global_step)
+
+    def get_enc_updates(self, iteration):
+        if self.n_enc_updates_per_round >= 1:
+            n_enc_updates = 1 if iteration % self.n_enc_updates_per_round == 0 else 0
+        else:
+            n_enc_updates = int(np.around(1 / self.n_enc_updates_per_round))
+        return n_enc_updates
 
     def _torchify_array(self, ndarray: Optional[np.ndarray]) -> Optional[th.Tensor]:
         if ndarray is not None:
@@ -618,63 +627,38 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         assert n_gen == len(gen_samples["acts"])
         assert n_gen == len(gen_samples["next_obs"])
 
-        if hasattr(self._reward_net, "target_states") and not invert_states_expert and tuple(range(expert_samples["obs"].shape[1])) == self._reward_net.target_states:
-            obs = np.concatenate([expert_samples["obs"], gen_samples["obs"]])
-            acts = None
-            next_obs = np.concatenate([expert_samples["next_obs"], gen_samples["next_obs"]])
-        elif hasattr(self._reward_net, "target_states") and not invert_states_expert:
-            target_states = self._reward_net.target_states
-            obs = np.concatenate([expert_samples["obs"][:, target_states], gen_samples["obs"][:, target_states]])
-            acts = None
-            next_obs = np.concatenate([expert_samples["next_obs"][:, target_states], gen_samples["next_obs"][:, target_states]])
-        elif hasattr(self._reward_net, "target_states") and invert_states_expert:
-            target_states = self._reward_net.target_states
-            target_states_inverted = (2, 1, 0)
-            obs = np.concatenate([expert_samples["obs"][:, target_states_inverted], gen_samples["obs"][:, target_states]])
-            acts = None
-            next_obs = np.concatenate(
-                [expert_samples["next_obs"][:, target_states_inverted], gen_samples["next_obs"][:, target_states]])
-        else:
-            obs = np.concatenate([expert_samples["obs"], gen_samples["obs"]])
-            acts = None
-            next_obs = np.concatenate([expert_samples["next_obs"], gen_samples["next_obs"]])
-
-
-        dones = np.concatenate([expert_samples["dones"], gen_samples["dones"]])
         labels_gen_is_one = np.concatenate(
             [np.zeros(n_expert, dtype=int), np.ones(n_gen, dtype=int)],
         )
 
-        # Problem: the action probabilities cannot be evaluated here for the demonstrator, as we do
-        # not assume access to the demonstrator's policy to be given
+        gen_obs, _, gen_next_obs, gen_dones = self.reward_train.preprocess(
+            state=np.array(gen_samples["obs"]),
+            action=None,
+            next_state=np.array(gen_samples["next_obs"]),
+            done=np.array(gen_samples["dones"]))
 
-        # Calculate generator-policy log probabilities.State-Only Imitation Learning for Dexterous Manipulation
-        # with th.no_grad():
-        #     obs_th = th.as_tensor(obs, device=self.gen_algo.device)
-        #     acts_th = th.as_tensor(acts, device=self.gen_algo.device)
-        #     log_act_prob = None
-        #     if hasattr(self.gen_algo.policy, "evaluate_actions"):
-        #         _, log_act_prob_th, _ = self.gen_algo.policy.evaluate_actions(
-        #             obs_th,
-        #             acts_th,
-        #         )
-        #         log_act_prob = log_act_prob_th.detach().cpu().numpy()
-        #         del log_act_prob_th  # unneeded
-        #         assert len(log_act_prob) == n_samples
-        #         log_act_prob = log_act_prob.reshape((n_samples,))
-        #     del obs_th, acts_th  # unneeded
+        expert_obs, _, expert_next_obs, expert_dones = self.reward_train.preprocess(
+            state=np.array(expert_samples["obs"]),
+            action=None,
+            next_state=np.array(expert_samples["next_obs"]),
+            done=np.array(expert_samples["dones"]))
 
-        obs_th, acts_th, next_obs_th, dones_th = self.reward_train.preprocess(
-            obs,
-            acts,
-            next_obs,
-            dones,
-        )
+        with th.no_grad():
+            gen_obs = self._encoder_net.forward(gen_obs)
+            gen_next_obs = self._encoder_net.forward(gen_next_obs)
+
+            expert_obs = self._encoder_net_expert.forward(expert_obs)
+            expert_next_obs = self._encoder_net_expert.forward(expert_next_obs)
+
+        obs = th.cat((expert_obs, gen_obs))
+        next_obs = th.cat((expert_next_obs, gen_next_obs))
+        dones = th.cat((expert_dones, gen_dones))
+
         batch_dict = {
-            "state": obs_th,
-            "action": acts_th,
-            "next_state": next_obs_th,
-            "done": dones_th,
+            "state": obs,
+            "action": None,
+            "next_state": next_obs,
+            "done": dones,
             "labels_gen_is_one": self._torchify_array(labels_gen_is_one),
             "log_policy_act_prob": None,
         }
@@ -737,61 +721,23 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         assert n_gen == len(gen_samples["acts"])
         assert n_gen == len(gen_samples["next_obs"])
 
-
-        # TODO-TF how to treat actions? yet to be solved
-        if hasattr(self._reward_net, "target_states") and tuple(range(gen_samples["obs"].shape[1])) != self._reward_net.target_states:
-            target_states = self._reward_net.target_states
-            obs = gen_samples["obs"][:, target_states]
-            acts = None
-            next_obs = gen_samples["next_obs"][:, target_states]
-        else:
-            obs = gen_samples["obs"]
-            acts = None
-            next_obs = gen_samples["next_obs"]
-
-
-        dones = gen_samples["dones"]
         labels_gen_is_one = np.ones(n_gen, dtype=int)
-
-        # Problem: the action probabilities cannot be evaluated here for the demonstrator, as we do
-        # not assume access to the demonstrator's policy to be given
-
-        # Calculate generator-policy log probabilities.State-Only Imitation Learning for Dexterous Manipulation
-        # with th.no_grad():
-        #     obs_th = th.as_tensor(obs, device=self.gen_algo.device)
-        #     acts_th = th.as_tensor(acts, device=self.gen_algo.device)
-        #     log_act_prob = None
-        #     if hasattr(self.gen_algo.policy, "evaluate_actions"):
-        #         _, log_act_prob_th, _ = self.gen_algo.policy.evaluate_actions(
-        #             obs_th,
-        #             acts_th,
-        #         )
-        #         log_act_prob = log_act_prob_th.detach().cpu().numpy()
-        #         del log_act_prob_th  # unneeded
-        #         assert len(log_act_prob) == n_samples
-        #         log_act_prob = log_act_prob.reshape((n_samples,))
-        #     del obs_th, acts_th  # unneeded
-
-        obs_th, acts_th, next_obs_th, dones_th = self.reward_train.preprocess(
-            obs,
-            acts,
-            next_obs,
-            dones,
-        )
-
         labels_is_one_th = self._torchify_array(labels_gen_is_one)
 
+        gen_obs, _, gen_next_obs, gen_dones = self.reward_train.preprocess(
+            state=np.array(gen_samples["obs"]),
+            action=None,
+            next_state=np.array(gen_samples["next_obs"]),
+            done=np.array(gen_samples["dones"]))
 
-        # ODO use .predict instead of .forward here?
-        if self._encoder_net is not None:
-            obs_th[labels_is_one_th.bool()] = self._encoder_net.forward(obs_th[labels_is_one_th.bool()])
-            next_obs_th[labels_is_one_th.bool()] = self._encoder_net.forward(next_obs_th[labels_is_one_th.bool()])
+        gen_obs = self._encoder_net.forward(gen_obs)
+        gen_next_obs = self._encoder_net.forward(gen_next_obs)
 
         batch_dict = {
-            "state": obs_th,
-            "action": acts_th,
-            "next_state": next_obs_th,
-            "done": dones_th,
+            "state": gen_obs,
+            "action": None,
+            "next_state": gen_next_obs,
+            "done": gen_dones,
             "labels_gen_is_one": labels_is_one_th,
             "log_policy_act_prob": None,
         }

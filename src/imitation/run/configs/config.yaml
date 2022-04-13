@@ -1,8 +1,6 @@
 
 defaults:
-    - state_only: "yes"
     - run_test: "no"
-    - use_encoder: "yes"
     - invert_states_expert: "yes"
     - irl_algo: gail
     - env: seals_mountain_car_org
