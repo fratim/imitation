@@ -4,7 +4,6 @@ import collections
 import dataclasses
 import logging
 import os
-import pdb
 from typing import Callable, Mapping, Optional, Sequence, Tuple, Type
 
 import numpy as np
@@ -329,7 +328,6 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         *,
         expert_samples: Optional[Mapping] = None,
         gen_samples: Optional[Mapping] = None,
-        invert_states_expert = False,
     ) -> Optional[Mapping[str, float]]:
         """Perform a single discriminator update, optionally using provided samples.
 
@@ -356,8 +354,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             # compute loss
             batch = self._make_disc_train_batch(
                 gen_samples=gen_samples,
-                expert_samples=expert_samples,
-                invert_states_expert=invert_states_expert
+                expert_samples=expert_samples
             )
             disc_logits = self.logits_gen_is_high(
                 batch["state"],
@@ -507,7 +504,6 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         self,
         total_timesteps: int,
         callback: Optional[Callable[[int], None]] = None,
-        invert_states_expert = False,
     ) -> None:
         """Alternates between training the generator and discriminator.
 
@@ -538,9 +534,9 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                 with networks.training(self.reward_train):
                     if self._encoder_net.type == "network": ## TODO (Tim) solve networks.evaluating hickupps for Basic Encoder type
                         with networks.evaluating(self._encoder_net):
-                            self.train_disc(invert_states_expert=invert_states_expert)
+                            self.train_disc()
                     else:
-                        self.train_disc(invert_states_expert=invert_states_expert)
+                        self.train_disc()
 
                 if self._encoder_net.type == "network":
                     for _ in range(self.get_enc_updates(iteration)):
@@ -567,7 +563,6 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         *,
         gen_samples: Optional[Mapping] = None,
         expert_samples: Optional[Mapping] = None,
-        invert_states_expert=False,
     ) -> Mapping[str, th.Tensor]:
         """Build and return training batch for the next discriminator update.
 

@@ -20,15 +20,17 @@ eval_rl_policy:
         seed: ${seed.value}
 
 train_adversarial:
-    command_name: ${irl_algo.name}
-    named_configs: ${run_test.train_adversarial.named_configs}
+    command_name: gail
+    named_configs:
+      - ${env.name}
+      - ${learner_enc.config}
+      - ${exp_enc.config}
     config_updates:
         common:
             log_dir: logss/
         demonstrations:
             rollout_path: ${exec.output_dir}/airl_saved/rl_demos/${demonstrator.name}/logss/rollouts/final.pkl
         seed: ${seed.value}
-        invert_states_expert: ${invert_states_expert.value}
         algorithm_kwargs:
             n_enc_updates_per_round: ${sacred.n_enc_updates_per_round}
             enc_lr: ${sacred.enc_lr}

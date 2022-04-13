@@ -69,4 +69,4 @@ def make_encoder_net(
         return encoder_net
 
     else:
-        raise ValueError("Unknwon Encoder Type")
+        raise ValueError(f"Unknown Encoder Type: {encoder_type}")

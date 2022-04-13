@@ -19,10 +19,6 @@ def config():
     data_dir = "data/"
     rollout_path = None  # path to file containing rollouts
     n_expert_demos = None  # Num demos used. None uses every demo possible
-    encoder_kwargs = dict(
-        encoder_type="identity",
-        target_states=None
-    )
     locals()  # quieten flake8
 
 @demonstrations_ingredient.named_config

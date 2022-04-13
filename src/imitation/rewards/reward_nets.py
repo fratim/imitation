@@ -99,7 +99,6 @@ class RewardNet(nn.Module, abc.ABC):
             Computed rewards of shape `(batch_size,`).
         """
 
-
         with networks.evaluating(self):
             # switch to eval mode (affecting normalization, dropout, etc)
 

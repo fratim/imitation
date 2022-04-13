@@ -1,6 +1,0 @@
-train_rl:
-    named_configs:
-        - ${env.name}
-train_adversarial:
-    named_configs:
-        - ${env.name}

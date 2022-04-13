@@ -74,7 +74,6 @@ def train_adversarial(
     total_timesteps: int,
     checkpoint_interval: int,
     encoder_learner_kwargs,
-    invert_states_expert = False,
 ) -> Mapping[str, Mapping[str, float]]:
     """Train an adversarial-network-based imitation learning algorithm.
 
@@ -146,7 +145,7 @@ def train_adversarial(
         if checkpoint_interval > 0 and round_num % checkpoint_interval == 0:
             save(trainer, os.path.join(log_dir, "checkpoints", f"{round_num:05d}"))
 
-    trainer.train(total_timesteps, callback, invert_states_expert=invert_states_expert)
+    trainer.train(total_timesteps, callback)
 
     # Save final artifacts.
     if checkpoint_interval >= 0:

@@ -1,16 +1,13 @@
 
 defaults:
-    - run_test: "no"
-    - invert_states_expert: "yes"
-    - irl_algo: gail
+    - exp_enc: "identity"
+    - learner_enc: "identity"
     - env: seals_mountain_car_org
     - demonstrator: seals_mountain_car_seed_one
     - sacred: standard
     - seed: one
     - exec: cluster
     - override /hydra/launcher: submitit_slurm
-
-
 
 hydra:
     launcher:
