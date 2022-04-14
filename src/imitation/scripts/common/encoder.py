@@ -41,18 +41,18 @@ def make_encoder_net(
     """
 
     if encoder_type == "identity":
-        return reward_nets.BasicEncoder(target_states=None, output_dimension=output_dim)
+        return reward_nets.BasicEncoder(output_dimension=output_dim, target_states=None)
 
     elif encoder_type == "reduction":
-        assert venv is None
         assert output_dim == len(target_states)
-        return reward_nets.BasicEncoder(target_states=target_states, output_dimension=output_dim)
+        return reward_nets.BasicEncoder(output_dimension=output_dim, target_states=target_states)
 
     elif encoder_type == "network":
         encoder_net = net_cls(
             venv.observation_space,
             venv.action_space,
             output_dim,
+            target_states,
             **net_kwargs,
         )
         logging.info(f"Encoder network:\n {encoder_net}")
@@ -63,6 +63,7 @@ def make_encoder_net(
             venv.observation_space,
             venv.action_space,
             output_dim,
+            target_states,
             **net_kwargs,
         )
         logging.info(f"Encoder network:\n {encoder_net}")

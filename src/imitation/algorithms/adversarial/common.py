@@ -247,7 +247,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             venv = self.venv_wrapped = reward_wrapper.RewardVecEnvWrapper(
                 venv,
                 self.reward_train.predict,
-                encoder=self._encoder_net if self._encoder_net.type == "network" else None
+                encoder=self._encoder_net
             )
             self.gen_callback = self.venv_wrapped.make_log_callback()
         self.venv_train = self.venv_wrapped

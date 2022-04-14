@@ -31,7 +31,7 @@ def normalize_input_running():
     net_kwargs = {"normalize_input_layer": networks.RunningNorm}  # noqa: F841
 
 
-@reward_ingredient.config_hook
+@reward_ingredient.config_hook # TODO add this config hook to the encoder nets too?
 def config_hook(config, command_name, logger):
     """Sets default values for `net_cls` and `net_kwargs`."""
     del logger

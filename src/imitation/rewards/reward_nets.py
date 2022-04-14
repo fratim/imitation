@@ -392,11 +392,11 @@ class BasicEncoder:
 
     def __init__(
         self,
-        target_states,
         output_dimension,
+        target_states
     ):
-        self.target_states = target_states
         self.output_dimension = output_dimension
+        self.target_states = target_states
         self.type = "static"
 
     def forward(self, input):
