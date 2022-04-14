@@ -1,5 +1,6 @@
 
-n_enc_updates_per_round: 16
+n_disc_updates_per_round: 16
+n_enc_updates_per_round: 1
 enc_lr: 1e-3
 disc_lr: 1e-3
 
@@ -33,6 +34,7 @@ train_adversarial:
         seed: ${seed.value}
         algorithm_kwargs:
             n_enc_updates_per_round: ${sacred.n_enc_updates_per_round}
+            n_disc_updates_per_round: ${sacred.n_disc_updates_per_round}
             enc_lr: ${sacred.enc_lr}
             disc_lr: ${sacred.disc_lr}
             enc_weight_decay: 0.0

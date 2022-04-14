@@ -207,8 +207,9 @@ class EncoderNet(nn.Module, abc.ABC):
         self,
         observation_space: gym.Space,
         action_space: gym.Space,
+        target_states,
         normalize_images: bool = True,
-        target_states=None,
+
     ):
         """Initialize the RewardNet.
 
@@ -357,10 +358,17 @@ class BasicEncoderNet(EncoderNet):
             use_done: should the "done" flag be included as an input to the MLP?
             kwargs: passed straight through to `build_mlp`.
         """
-        super().__init__(observation_space, action_space, target_states)
+        super().__init__(observation_space=observation_space,
+                         action_space=action_space,
+                         target_states=target_states)
 
         self.output_dim = output_dim
-        self.input_dim = preprocessing.get_flattened_obs_dim(observation_space)
+
+        if target_states is None:
+            self.input_dim = preprocessing.get_flattened_obs_dim(observation_space)
+        else:
+            self.input_dim = len(target_states)
+
         self.type = "network"
 
         full_build_mlp_kwargs = {

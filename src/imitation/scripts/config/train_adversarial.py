@@ -6,6 +6,8 @@ from imitation.rewards import reward_nets
 from imitation.scripts.common import common, demonstrations, reward, rl, train, encoder
 from imitation.util import networks
 
+reduced_states = (0,)
+
 train_adversarial_ex = sacred.Experiment(
     "train_adversarial",
     ingredients=[
@@ -50,7 +52,7 @@ def identity():
 def reduced():
     encoder_learner_kwargs = dict(
         encoder_type="reduction",
-        target_states=(0, 1, 2)
+        target_states=reduced_states
     )
 
 @train_adversarial_ex.named_config
@@ -64,7 +66,7 @@ def network():
 def reduced_network():
     encoder_learner_kwargs = dict(
         encoder_type="reduction_followed_by_network",
-        target_states=(0, 1, 2)
+        target_states=reduced_states
     )
 
 
@@ -118,6 +120,11 @@ def mountain_car():
 @train_adversarial_ex.named_config
 def seals_mountain_car():
     common = dict(env_name="seals/MountainCar-v0")
+    algorithm_kwargs = dict(
+        # Number of discriminator updates after each round of generator updates
+        n_disc_updates_per_round=128,
+        disc_lr=1e-3
+    )
 
 
 

@@ -12,6 +12,7 @@ import copy
 demonstrations_ingredient = sacred.Ingredient("demonstrations")
 logger = logging.getLogger(__name__)
 
+reduced_states = (0,)
 
 @demonstrations_ingredient.config
 def config():
@@ -32,14 +33,14 @@ def identity():
 def reduced():
     encoder_kwargs = dict(
         encoder_type="reduction",
-        target_states=(0, 1, 2)
+        target_states=reduced_states
     )
 
 @demonstrations_ingredient.named_config
 def reduced_inverted():
     encoder_kwargs = dict(
         encoder_type="reduction",
-        target_states=invert_tuple((0, 1, 2))
+        target_states=invert_tuple(reduced_states)
     )
 
 @demonstrations_ingredient.named_config
