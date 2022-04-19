@@ -93,6 +93,7 @@ class GAIL(common.AdversarialTrainer):
         """Compute the discriminator's logits for each state-action sample."""
         del log_policy_act_prob
         logits = self._reward_net(state, action, next_state, done)
+
         assert logits.shape == state.shape[:1]
         return logits
 

@@ -1,9 +1,22 @@
 
+
+n_disc: 16
+n_enc: 1
+enc_lr: 1e-3
+disc_lr: 1e-3
+enc_weight_decay: 0
+use_wgan: False
+disc_opt_cls: "adam"
+clip_disc: False
+
+task_name: "gridsearch2"
+
 defaults:
+    - reward_net: "standard"
     - exp_enc: "identity"
     - learner_enc: "identity"
     - env: seals_mountain_car_org
-    - demonstrator: seals_mountain_car_seed_one
+    - dem: seals_mountain_car_seed_one
     - sacred: standard
     - seed: one
     - exec: cluster
@@ -12,26 +25,24 @@ defaults:
 hydra:
     launcher:
         submitit_folder: logs/multiruns/.submitit/%j
-        timeout_min: 600
-        cpus_per_task: 8
-        gpus_per_node: 1
+        timeout_min: 360
+        cpus_per_task: 4
         tasks_per_node: 1
-        mem_gb: 24
+        mem_gb: 5
         nodes: 1
         name: testscript
         _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
-        partition: gpu
         comment: null
         exclude: gnodec1
         max_num_timeout: 0
         additional_parameters: {}
-        array_parallelism: 12
+        array_parallelism: 100
         setup: null
 
     run:
-        dir: ${exec.output_dir}/airl_runs/${env.name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
+        dir: ${exec.output_dir}/airl_runs/${task_name}/${env.name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
     sweep:
-        dir: ${exec.output_dir}/airl_runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
+        dir: ${exec.output_dir}/airl_runs/${task_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
         subdir: ${hydra.job.override_dirname}
 
 # add job id
@@ -39,6 +50,4 @@ job_id: ${hydra.job.num}
 
 
 
-#python run.py env=seals_hopper_trunc demonstrator=seals_hopper_seed_five,seals_hopper_seed_three  seed=one,two,three
-#python -m imitation.run.run_irl env=seals_hopper_trunc demonstrator=seals_walker_seed_one sacred=test
 

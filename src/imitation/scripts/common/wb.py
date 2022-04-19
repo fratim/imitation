@@ -4,6 +4,7 @@ import logging
 from typing import Any, Mapping, Optional
 
 import sacred
+import os
 
 wandb_ingredient = sacred.Ingredient("common.wandb")
 logger = logging.getLogger(__name__)
@@ -16,8 +17,10 @@ def wandb_config():
     wandb_name_prefix = ""  # User-specified prefix for the run name
     wandb_kwargs = dict(
         project="imitation",
+        entity="frtim",
         monitor_gym=False,
         save_code=True,
+        sync_tensorboard=True,
     )  # Other kwargs to pass to wandb.init()
 
     locals()
@@ -45,11 +48,13 @@ def wandb_init(
     env_name = _run.config["common"]["env_name"]
     root_seed = _run.config["seed"]
 
+    run_id = os.getcwd().split("/")[-1]
+
     updated_wandb_kwargs = {}
     updated_wandb_kwargs.update(wandb_kwargs)
     updated_wandb_kwargs.update(
         dict(
-            name="-".join([wandb_name_prefix, env_name, f"seed{root_seed}"]),
+            name="/".join([wandb_name_prefix, run_id, f"seed{root_seed}"]),
             tags=[env_name, f"seed{root_seed}"] + ([wandb_tag] if wandb_tag else []),
             dir=log_dir,
         ),

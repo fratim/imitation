@@ -7,6 +7,7 @@ import os
 from typing import Callable, Mapping, Optional, Sequence, Tuple, Type
 
 import numpy as np
+import torch
 import torch as th
 import torch.utils.tensorboard as thboard
 import tqdm
@@ -18,6 +19,15 @@ from imitation.data import buffer, rollout, types, wrappers
 from imitation.rewards import reward_nets, reward_wrapper
 from imitation.util import logger, networks, util
 
+import time
+
+def get_wgan_loss_disc(disc_logits, labels_ge_is_one):
+    loss = torch.mean(disc_logits[(1 - labels_ge_is_one).bool()]) - torch.mean(disc_logits[labels_ge_is_one.bool()])
+    return loss
+
+def get_wgan_loss_gen(disc_logits, labels_ge_is_one):
+    loss = torch.mean(disc_logits[labels_ge_is_one.bool()])
+    return loss
 
 def compute_train_stats(
     disc_logits_gen_is_high: th.Tensor,
@@ -96,6 +106,28 @@ def compute_train_stats(
     return collections.OrderedDict(pairs)
 
 
+def get_min_max_of_network(network):
+
+    if not hasattr(network, "mlp"):
+        return 0, 0
+
+    sequential_network = network.mlp
+
+    min_overall = None
+    max_overall = None
+
+    for layer in sequential_network.children():
+
+        if not hasattr(layer, "weight"):
+            continue
+
+        min_this_layer = torch.min(layer.weight.data)
+        max_this_layer = torch.max(layer.weight.data)
+        min_overall = min_this_layer if min_overall is None or min_overall > min_this_layer else min_overall
+        max_overall = max_this_layer if max_overall is None or max_overall < max_this_layer else max_overall
+
+    return min_overall, max_overall
+
 class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
     """Base class for adversarial imitation learning algorithms like GAIL and AIRL."""
 
@@ -134,6 +166,8 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         init_tensorboard_graph: bool = False,
         debug_use_ground_truth: bool = False,
         allow_variable_horizon: bool = False,
+        use_wgan: bool = False,
+        clip_disc_weights: bool = False,
     ):
         """Builds AdversarialTrainer.
 
@@ -183,6 +217,14 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                 https://imitation.readthedocs.io/en/latest/guide/variable_horizon.html
                 before overriding this.
         """
+
+        if disc_opt_cls == "adam":
+            disc_opt_cls = th.optim.Adam
+        elif disc_opt_cls == "rmsprop":
+            disc_opt_cls = th.optim.RMSprop
+        else:
+            raise NotImplemented("Unknown Discriminator Optimizor class, neither adam nor RMSprop")
+
         self.demo_batch_size = demo_batch_size
         self._demo_data_loader = None
         self._endless_expert_iterator = None
@@ -191,6 +233,8 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             custom_logger=custom_logger,
             allow_variable_horizon=allow_variable_horizon,
         )
+
+        self.clip_disc_weights = clip_disc_weights
 
         self._global_step = 0
         self._disc_step = 0
@@ -211,6 +255,8 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
 
         self._log_dir = log_dir
 
+        self.use_wgan = use_wgan
+
         # Create graph for optimising/recording stats on discriminator
         self._disc_opt_cls = disc_opt_cls
         self._disc_opt_kwargs = disc_opt_kwargs or {}
@@ -222,6 +268,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             self._reward_net.parameters(),
             lr=disc_lr
         )
+
 
         assert self._disc_opt_kwargs == {}
         if self._encoder_net.type == "network":
@@ -363,16 +410,27 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                 batch["done"],
                 batch["log_policy_act_prob"],
             )
-            loss = F.binary_cross_entropy_with_logits(
-                disc_logits,
-                batch["labels_gen_is_one"].float(),
-            )
+
+            if self.use_wgan:
+                loss = get_wgan_loss_disc(disc_logits=disc_logits, labels_ge_is_one=batch["labels_gen_is_one"])
+            else:
+                loss = F.binary_cross_entropy_with_logits(
+                    disc_logits,
+                    batch["labels_gen_is_one"].float(),
+                )
+
 
             # do gradient step
             self._disc_opt.zero_grad()
             loss.backward()
             self._disc_opt.step()
-            self._disc_step += 1
+            self._disc_step
+
+            if self.clip_disc_weights:
+                max = 0.01
+                self._reward_net.mlp.dense0.weight.data = self._reward_net.mlp.dense0.weight.data.clamp(-max, max)
+                self._reward_net.mlp.dense1.weight.data = self._reward_net.mlp.dense1.weight.data.clamp(-max, max)
+                self._reward_net.mlp.dense_final.weight.data = self._reward_net.mlp.dense_final.weight.data.clamp(-max, max)
 
             # compute/write stats and TensorBoard data
             with th.no_grad():
@@ -421,6 +479,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             batch = self._make_enc_train_batch(
                 gen_samples=gen_samples,
             )
+
             disc_logits = self.logits_gen_is_high_for_encoder(
                 batch["state"],
                 batch["action"],
@@ -432,10 +491,14 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             ## we want the discriminator to predict that this is actually the expert
             labels = batch["labels_gen_is_one"]*0 # TODO is this correct?
 
-            loss = F.binary_cross_entropy_with_logits(
-                disc_logits,
-                labels.float() ## TODO make sure this is correct,
-            )
+            if self.use_wgan:
+                loss = get_wgan_loss_gen(disc_logits, batch["labels_gen_is_one"])
+            else:
+                loss = F.binary_cross_entropy_with_logits(
+                    disc_logits,
+                    labels.float()  ## TODO make sure this is correct,
+                )
+
 
             # do gradient step
             self._encoder_opt.zero_grad()
@@ -527,6 +590,9 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             f"total_timesteps={total_timesteps})!"
         )
         for r in tqdm.tqdm(range(0, n_rounds), desc="round"):
+
+            start_time = time.time()
+
             # train agent
             self.train_gen(self.gen_train_timesteps)
 
@@ -543,9 +609,18 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                         with networks.training(self._encoder_net), networks.evaluating(self.reward_train):
                             self.train_enc()
 
+            self.logger.record("train_it_time", time.time()-start_time)
+
             if callback:
                 callback(r)
             self.logger.dump(self._global_step)
+
+            if r % 10 == 0:
+                for network, iden in zip([self._reward_net, self._encoder_net], ["disc", "enc"]):
+                    minimum, maximum = get_min_max_of_network(network)
+                    self.logger.record(f"{iden}/min", minimum)
+                    self.logger.record(f"{iden}/max", maximum)
+
 
     def get_enc_updates(self, iteration):
         if self.n_enc_updates_per_round >= 1:

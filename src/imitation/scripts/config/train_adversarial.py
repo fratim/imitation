@@ -6,8 +6,6 @@ from imitation.rewards import reward_nets
 from imitation.scripts.common import common, demonstrations, reward, rl, train, encoder
 from imitation.util import networks
 
-reduced_states = (0,)
-
 train_adversarial_ex = sacred.Experiment(
     "train_adversarial",
     ingredients=[
@@ -45,28 +43,24 @@ def defaults():
 def identity():
     encoder_learner_kwargs = dict(
         encoder_type="identity",
-        target_states=None
     )
 
 @train_adversarial_ex.named_config
 def reduced():
     encoder_learner_kwargs = dict(
         encoder_type="reduction",
-        target_states=reduced_states
     )
 
 @train_adversarial_ex.named_config
 def network():
     encoder_learner_kwargs = dict(
         encoder_type="network",
-        target_states=None
     )
 
 @train_adversarial_ex.named_config
 def reduced_network():
     encoder_learner_kwargs = dict(
         encoder_type="reduction_followed_by_network",
-        target_states=reduced_states
     )
 
 

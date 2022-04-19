@@ -32,7 +32,6 @@ def config():
     )
     locals()  # quieten flake8
 
-
 @rl_ingredient.named_config
 def fast():
     batch_size = 2

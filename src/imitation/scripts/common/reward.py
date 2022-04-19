@@ -25,6 +25,13 @@ def config():
 def normalize_input_disable():
     net_kwargs = {"normalize_input_layer": None}  # noqa: F841
 
+@reward_ingredient.named_config
+def custom():
+    # Custom reward network
+    net_cls = reward_nets.BasicRewardNet
+    net_kwargs = dict(
+        hid_sizes=(64, 64)
+    )
 
 @reward_ingredient.named_config
 def normalize_input_running():
