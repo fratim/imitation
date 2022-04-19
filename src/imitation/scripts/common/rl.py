@@ -12,6 +12,8 @@ from stable_baselines3.common import (
     vec_env,
 )
 
+from stable_baselines3.common.noise import NormalActionNoise
+
 from imitation.scripts.common.train import train_ingredient
 
 rl_ingredient = sacred.Ingredient("rl", ingredients=[train_ingredient])
@@ -20,17 +22,41 @@ logger = logging.getLogger(__name__)
 
 @rl_ingredient.config
 def config():
-    rl_cls = stable_baselines3.PPO
+    rl_cls = stable_baselines3.TD3
     batch_size = 2048  # batch size for RL algorithm
+
     rl_kwargs = dict(
-        # For recommended PPO hyperparams in each environment, see:
-        # https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml
-        learning_rate=3e-4,
-        batch_size=64,
-        n_epochs=10,
-        ent_coef=0.0,
-    )
+        # parameters taken from DA paper
+        gamma=0.99,
+        tau=0.005,
+        learning_rate=3e-4, # TODO-tim implement learning rate scheduling
+        train_freq=2,
+        gradient_steps=1,
+        target_policy_noise=0.2,
+        target_noise_clip=0.5,
+        # unverified parameters
+        policy="MlpPolicy",
+        ## Actor Network
+        # should be: dense(400), relu, dense(300), relu, dense(actiondim), "tanh"
+        # initialized as described in common.actor
+        ## Critic should be Dense(400), tanh, Dense(300), tanh, (Dense)
+        learning_starts=1000, # 1000 in DAC, 10000 normally for TD3
+        action_noise=NormalActionNoise(mean=[0, 0, 0], sigma=[0.1, 0.1, 0.1])) # TODO-tim what is action noise used for? how is this set in the original implementation?
     locals()  # quieten flake8
+
+# @rl_ingredient.config
+# def config():
+#     rl_cls = stable_baselines3.PPO
+#     batch_size = 2048  # batch size for RL algorithm
+#     rl_kwargs = dict(
+#         # For recommended PPO hyperparams in each environment, see:
+#         # https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml
+#         learning_rate=3e-4,
+#         batch_size=64,
+#         n_epochs=10,
+#         ent_coef=0.0,
+#     )
+#     locals()  # quieten flake8
 
 @rl_ingredient.named_config
 def fast():
@@ -87,9 +113,11 @@ def make_rl_algo(
         rl_kwargs["batch_size"] = batch_size
     else:
         raise TypeError(f"Unsupported RL algorithm '{rl_cls}'")
+
+
     rl_algo = rl_cls(
-        policy=train["policy_cls"],
-        policy_kwargs=train["policy_kwargs"],
+        # policy=train["policy_cls"],
+        # policy_kwargs=train["policy_kwargs"],
         env=venv,
         seed=_seed,
         **rl_kwargs,

@@ -14,10 +14,10 @@ from imitation.algorithms.adversarial import common
 from imitation.algorithms.adversarial import gail as gail_algo
 from imitation.data import rollout
 from imitation.policies import serialize
-from imitation.scripts.common import common as common_config
 from imitation.scripts.common import demonstrations, reward, rl, train, encoder
 from imitation.scripts.config.train_adversarial import train_adversarial_ex
 
+from imitation.scripts.common import common as common_config
 
 logger = logging.getLogger("imitation.scripts.train_adversarial")
 
@@ -112,6 +112,8 @@ def train_adversarial(
     expert_trajs = demonstrations.load_expert_trajs()
 
     venv = common_config.make_venv()
+    eval_env = common_config.make_venv(num_vec=1, parallel=False)
+
     gen_algo = rl.make_rl_algo(venv)
 
     encoder_net_expert = encoder.make_encoder_net(**demonstrations.get_encoder_kwargs(expert_trajs=expert_trajs))
@@ -138,6 +140,7 @@ def train_adversarial(
         custom_logger=custom_logger,
         encoder_net=encoder_net_learner,
         encoder_net_expert=encoder_net_expert,
+        eval_env=eval_env,
         **algorithm_kwargs,
     )
 

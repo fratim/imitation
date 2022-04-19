@@ -187,7 +187,8 @@ def seals_half_cheetah():
 def seals_hopper():
     locals().update(**MUJOCO_SHARED_LOCALS)
     common = dict(env_name="seals/Hopper-v0")
-    rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
+    # rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
+    rl = dict(batch_size=16384)
     algorithm_specific = dict(
         gail=dict(total_timesteps=int(8e6)),
     )
@@ -252,7 +253,8 @@ def seals_swimmer():
 def seals_walker():
     locals().update(**MUJOCO_SHARED_LOCALS)
     common = dict(env_name="seals/Walker2d-v0")
-    rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
+    # rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
+    rl = dict(batch_size=16384)
     algorithm_specific = dict(
         gail=dict(total_timesteps=int(8e6)),
     )

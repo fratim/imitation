@@ -168,6 +168,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         allow_variable_horizon: bool = False,
         use_wgan: bool = False,
         clip_disc_weights: bool = False,
+        eval_env: None,
     ):
         """Builds AdversarialTrainer.
 
@@ -285,6 +286,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             self._summary_writer = thboard.SummaryWriter(summary_dir)
 
         venv = self.venv_buffering = wrappers.BufferingWrapper(self.venv)
+        eval_env = self.venv_eval_buffering = wrappers.BufferingWrapper(venv=eval_env, error_on_premature_reset=False)
 
         if debug_use_ground_truth:
             # Would use an identity reward fn here, but RewardFns can't see rewards.
@@ -296,11 +298,23 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                 self.reward_train.predict,
                 encoder=self._encoder_net
             )
+            venv_eval = self.venv_eval_wrapped = reward_wrapper.RewardVecEnvWrapper(
+                eval_env,
+                self.reward_train.predict,
+                encoder=self._encoder_net
+            )
             self.gen_callback = self.venv_wrapped.make_log_callback()
+
         self.venv_train = self.venv_wrapped
+        self.venv_eval = self.venv_eval_wrapped
+
         if normalize_reward:
             self.venv_train = vec_env.VecNormalize(
                 self.venv_wrapped,
+                norm_obs=False,
+            )
+            self.venv_eval = vec_env.VecNormalize(
+                self.venv_eval_wrapped,
                 norm_obs=False,
             )
 
@@ -339,7 +353,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         predicting expert.
 
         Args:
-            state: state at time t, of shape `(batch_size,) + state_shape`.
+            state: state at time t, of shape `(batch_size,) + statse_shape`.
             action: action taken at time t, of shape `(batch_size,) + action_shape`.
             next_state: state at time t+1, of shape `(batch_size,) + state_shape`.
             done: binary episode completion flag after action at time t,
@@ -550,14 +564,24 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             learn_kwargs = {}
 
         with self.logger.accumulate_means("gen"):
+
+            if self._global_step % 10 == 0:
+                eval_freq = 1
+            else:
+                eval_freq = 100000
+
             self.gen_algo.learn(
                 total_timesteps=total_timesteps,
                 reset_num_timesteps=False,
                 callback=self.gen_callback,
+                n_eval_episodes=3,
+                eval_freq=eval_freq,
+                eval_env=self.venv_eval,
                 **learn_kwargs,
             )
             self._global_step += 1
 
+        
         gen_trajs, ep_lens = self.venv_buffering.pop_trajectories()
         self._check_fixed_horizon(ep_lens)
         gen_samples = rollout.flatten_trajectories_with_rew(gen_trajs)
