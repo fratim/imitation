@@ -166,7 +166,7 @@ class BasicRewardNet(RewardNet):
         super().__init__(input_dimension)
 
         full_build_mlp_kwargs = {
-            "hid_sizes": (32, 32),
+            "hid_sizes": (256, 256),
         }
         full_build_mlp_kwargs.update(kwargs)
         full_build_mlp_kwargs.update(
@@ -193,6 +193,12 @@ class BasicRewardNet(RewardNet):
         outputs = self.mlp(inputs_concat)
 
         assert outputs.shape == state.shape[:1]
+
+        return outputs
+
+    def forward_direct(self, input):
+
+        outputs = self.mlp(input)
 
         return outputs
 

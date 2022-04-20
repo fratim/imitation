@@ -33,7 +33,7 @@ def defaults():
         n_enc_updates_per_round=4,
         enc_lr=1e-3,
         enc_weight_decay=0,  # 1e-4
-        gen_replay_buffer_capacity=2048,
+        # gen_replay_buffer_capacity=2048,
     )
     algorithm_specific = {}  # algorithm_specific[algorithm] is merged with config
 
@@ -64,13 +64,13 @@ def reduced_network():
     )
 
 
-@train_adversarial_ex.config
-def aliases_default_gen_batch_size(algorithm_kwargs, rl):
-    # Setting generator buffer capacity and discriminator batch size to
-    # the same number is equivalent to not using a replay buffer at all.
-    # "Disabling" the replay buffer seems to improve convergence speed, but may
-    # come at a cost of stability.
-    algorithm_kwargs["gen_replay_buffer_capacity"] = rl["batch_size"]
+# @train_adversarial_ex.config
+# def aliases_default_gen_batch_size(algorithm_kwargs, rl):
+#     # Setting generator buffer capacity and discriminator batch size to
+#     # the same number is equivalent to not using a replay buffer at all.
+#     # "Disabling" the replay buffer seems to improve convergence speed, but may
+#     # come at a cost of stability.
+#     algorithm_kwargs["gen_replay_buffer_capacity"] = rl["batch_size"]
 
 
 # Shared settings
@@ -182,13 +182,11 @@ def seals_half_cheetah():
         demo_batch_size=8192,
     )
 
-
 @train_adversarial_ex.named_config
-def seals_hopper():
+def hopper():
     locals().update(**MUJOCO_SHARED_LOCALS)
-    common = dict(env_name="seals/Hopper-v0")
-    # rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
-    rl = dict(batch_size=16384)
+    common = dict(env_name="Hopper-v3")
+    rl = dict(batch_size=0)
     algorithm_specific = dict(
         gail=dict(total_timesteps=int(8e6)),
     )
@@ -202,14 +200,43 @@ def seals_hopper():
     )
     algorithm_kwargs = dict(
         # Number of discriminator updates after each round of generator updates
-        n_disc_updates_per_round=16,
+        n_disc_updates_per_round=1000,
         disc_lr=1e-3,
-        n_enc_updates_per_round=16,
+        n_enc_updates_per_round=1,
         enc_lr=1e-3,
         enc_weight_decay=0,  # 1e-4
         # Equivalent to no replay buffer if batch size is the same
-        gen_replay_buffer_capacity=16384,
-        demo_batch_size=8192,
+        # gen_replay_buffer_capacity=16384,
+        demo_batch_size=100,
+    )
+
+
+@train_adversarial_ex.named_config
+def seals_hopper():
+    locals().update(**MUJOCO_SHARED_LOCALS)
+    common = dict(env_name="seals/Hopper-v0")
+    rl = dict(batch_size=0)
+    algorithm_specific = dict(
+        gail=dict(total_timesteps=int(8e6)),
+    )
+    reward = dict(
+        algorithm_specific=dict(
+            gail=dict(
+                net_cls=reward_nets.BasicRewardNet,
+                net_kwargs=dict(),
+            ),
+        ),
+    )
+    algorithm_kwargs = dict(
+        # Number of discriminator updates after each round of generator updates
+        n_disc_updates_per_round=1000,
+        disc_lr=1e-3,
+        n_enc_updates_per_round=1,
+        enc_lr=1e-3,
+        enc_weight_decay=0,  # 1e-4
+        # Equivalent to no replay buffer if batch size is the same
+        # gen_replay_buffer_capacity=16384,
+        demo_batch_size=100,
     )
 
 @train_adversarial_ex.named_config

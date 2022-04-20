@@ -29,8 +29,8 @@ def config():
 
     # Environment config
     env_name = "seals/CartPole-v0"  # environment to train on
-    num_vec = 8  # number of environments in VecEnv
-    parallel = True  # Use SubprocVecEnv rather than DummyVecEnv
+    num_vec = 1  # number of environments in VecEnv
+    parallel = False  # Use SubprocVecEnv rather than DummyVecEnv
     max_episode_steps = None  # Set to positive int to limit episode horizons
     env_make_kwargs = {}  # The kwargs passed to `spec.make`.
 

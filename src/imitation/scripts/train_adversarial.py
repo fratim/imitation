@@ -131,6 +131,7 @@ def train_adversarial(
         if k in algorithm_kwargs:
             del algorithm_kwargs[k]
 
+
     trainer = algo_cls(
         venv=venv,
         demonstrations=expert_trajs,
@@ -141,6 +142,8 @@ def train_adversarial(
         encoder_net=encoder_net_learner,
         encoder_net_expert=encoder_net_expert,
         eval_env=eval_env,
+        gen_train_timesteps=1000,
+        gen_replay_buffer_capacity=100000000,
         **algorithm_kwargs,
     )
 

@@ -117,7 +117,7 @@ def build_mlp(
     hid_sizes: Iterable[int],
     out_size: int = 1,
     name: Optional[str] = None,
-    activation: Type[nn.Module] = nn.ReLU,
+    activation: Type[nn.Module] = nn.Tanh,
     squeeze_output: bool = False,
     flatten_input: bool = False,
     normalize_input_layer: Optional[Type[nn.Module]] = None,
@@ -158,20 +158,22 @@ def build_mlp(
     if flatten_input:
         layers[f"{prefix}flatten"] = nn.Flatten()
 
-    if normalize_input_layer:
-        layers[f"{prefix}normalize_input"] = normalize_input_layer(in_size)
+    # if normalize_input_layer:
+    #     layers[f"{prefix}normalize_input"] = normalize_input_layer(in_size)
 
     # Hidden layers
     prev_size = in_size
     for i, size in enumerate(hid_sizes):
         layers[f"{prefix}dense{i}"] = nn.Linear(prev_size, size, bias=use_bias)
+        th.nn.init.orthogonal_(layers[f"{prefix}dense{i}"].weight, gain=1)
+
         prev_size = size
         if activation:
             layers[f"{prefix}act{i}"] = activation()
 
     # Final layer
     layers[f"{prefix}dense_final"] = nn.Linear(prev_size, out_size, bias=use_bias)
-    th.nn.init.normal_(layers[f"{prefix}dense_final"].weight, mean=0.5, std=0.01) if not use_bias else None
+    th.nn.init.orthogonal_(layers[f"{prefix}dense_final"].weight, gain=1)
 
     if squeeze_output:
         if out_size != 1:

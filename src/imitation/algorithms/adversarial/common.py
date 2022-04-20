@@ -20,6 +20,7 @@ from imitation.rewards import reward_nets, reward_wrapper
 from imitation.util import logger, networks, util
 
 import time
+from stable_baselines3.common.noise import NormalActionNoise
 
 def get_wgan_loss_disc(disc_logits, labels_ge_is_one):
     loss = torch.mean(disc_logits[(1 - labels_ge_is_one).bool()]) - torch.mean(disc_logits[labels_ge_is_one.bool()])
@@ -128,6 +129,35 @@ def get_min_max_of_network(network):
 
     return min_overall, max_overall
 
+
+def compute_gp(netD, real_data, fake_data):
+    batch_size = real_data.size(0)
+    # Sample Epsilon from uniform distribution
+    eps = torch.rand(batch_size, 1).to(real_data.device)
+    eps = eps.expand_as(real_data)
+
+    # Interpolation between real data and fake data.
+    interpolation = (eps * real_data + (1 - eps) * fake_data).detach()
+    interpolation.requires_grad = True
+
+    # get logits for interpolated images
+    interp_logits = netD.forward_direct(interpolation)
+    grad_outputs = torch.ones_like(interp_logits)
+
+    # Compute Gradients
+    gradients = torch.autograd.grad(
+        outputs=interp_logits,
+        inputs=interpolation,
+        grad_outputs=grad_outputs,
+        create_graph=True,
+        retain_graph=True,
+    )[0]
+
+    # Compute and return Gradient Norm
+    gradients = gradients.view(batch_size, -1)
+    grad_norm = gradients.norm(2, 1)
+    return torch.mean((grad_norm - 1) ** 2)
+
 class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
     """Base class for adversarial imitation learning algorithms like GAIL and AIRL."""
 
@@ -156,7 +186,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         enc_lr: float = 1e-3,
         enc_weight_decay: float = 0.0,
         log_dir: str = "output/",
-        normalize_reward: bool = True,
+        normalize_reward: bool = False,
         disc_opt_cls: Type[th.optim.Optimizer] = th.optim.Adam,
         disc_opt_kwargs: Optional[Mapping] = None,
         gen_train_timesteps: Optional[int] = None,
@@ -293,16 +323,17 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             self.venv_wrapped = venv
             self.gen_callback = None
         else:
-            venv = self.venv_wrapped = reward_wrapper.RewardVecEnvWrapper(
+            self.venv_wrapped = reward_wrapper.RewardVecEnvWrapper(
                 venv,
                 self.reward_train.predict,
                 encoder=self._encoder_net
             )
-            venv_eval = self.venv_eval_wrapped = reward_wrapper.RewardVecEnvWrapper(
+            self.venv_eval_wrapped = reward_wrapper.RewardVecEnvWrapper(
                 eval_env,
                 self.reward_train.predict,
                 encoder=self._encoder_net
             )
+
             self.gen_callback = self.venv_wrapped.make_log_callback()
 
         self.venv_train = self.venv_wrapped
@@ -408,45 +439,63 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         Returns:
             Statistics for discriminator (e.g. loss, accuracy).
         """
-        with self.logger.accumulate_means("disc"):
-            # optionally write TB summaries for collected ops
-            write_summaries = self._init_tensorboard and self._global_step % 20 == 0
+        #
+        # with self.logger.accumulate_means("disc"):
+        # optionally write TB summaries for collected ops
+        write_summaries = self._init_tensorboard and self._global_step % 20 == 0
 
-            # compute loss
-            batch = self._make_disc_train_batch(
-                gen_samples=gen_samples,
-                expert_samples=expert_samples
+        # compute loss
+        batch = self._make_disc_train_batch(
+            gen_samples=gen_samples,
+            expert_samples=expert_samples
+        )
+        disc_logits = self.logits_gen_is_high(
+            batch["state"],
+            batch["action"],
+            batch["next_state"],
+            batch["done"],
+            batch["log_policy_act_prob"],
+        )
+
+        if self.use_wgan:
+            loss = get_wgan_loss_disc(disc_logits=disc_logits, labels_ge_is_one=batch["labels_gen_is_one"])
+        else:
+            loss = F.binary_cross_entropy_with_logits(
+                disc_logits,
+                batch["labels_gen_is_one"].float(),
             )
-            disc_logits = self.logits_gen_is_high(
-                batch["state"],
-                batch["action"],
-                batch["next_state"],
-                batch["done"],
-                batch["log_policy_act_prob"],
-            )
-
-            if self.use_wgan:
-                loss = get_wgan_loss_disc(disc_logits=disc_logits, labels_ge_is_one=batch["labels_gen_is_one"])
-            else:
-                loss = F.binary_cross_entropy_with_logits(
-                    disc_logits,
-                    batch["labels_gen_is_one"].float(),
-                )
 
 
-            # do gradient step
-            self._disc_opt.zero_grad()
-            loss.backward()
-            self._disc_opt.step()
-            self._disc_step
+        # do gradient step
+        self._disc_opt.zero_grad()
 
-            if self.clip_disc_weights:
-                max = 0.01
-                self._reward_net.mlp.dense0.weight.data = self._reward_net.mlp.dense0.weight.data.clamp(-max, max)
-                self._reward_net.mlp.dense1.weight.data = self._reward_net.mlp.dense1.weight.data.clamp(-max, max)
-                self._reward_net.mlp.dense_final.weight.data = self._reward_net.mlp.dense_final.weight.data.clamp(-max, max)
+        state_x = batch["state"]
+        next_state_x = batch["next_state"]
+        labels_x = batch["labels_gen_is_one"]
 
-            # compute/write stats and TensorBoard data
+        with networks.evaluating(self._reward_net):
+
+            real_data = torch.cat((state_x[~labels_x.bool()], next_state_x[~labels_x.bool()]), dim=1)
+
+            fake_data = torch.cat((state_x[labels_x.bool()], next_state_x[labels_x.bool()]), dim=1)
+
+            gradient_penalty = compute_gp(self._reward_net, real_data, fake_data)
+
+        gp_weight = 10
+        loss = loss + gp_weight * gradient_penalty
+
+        loss.backward()
+        self._disc_opt.step()
+        self._disc_step += 1
+
+        if self.clip_disc_weights:
+            max = 0.01
+            self._reward_net.mlp.dense0.weight.data = self._reward_net.mlp.dense0.weight.data.clamp(-max, max)
+            self._reward_net.mlp.dense1.weight.data = self._reward_net.mlp.dense1.weight.data.clamp(-max, max)
+            self._reward_net.mlp.dense_final.weight.data = self._reward_net.mlp.dense_final.weight.data.clamp(-max, max)
+
+        # compute/write stats and TensorBoard data
+        if self._disc_step % 100 == 0:
             with th.no_grad():
                 train_stats = compute_train_stats(
                     disc_logits,
@@ -459,6 +508,8 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             self.logger.dump(self._disc_step)
             if write_summaries:
                 self._summary_writer.add_histogram("disc_logits", disc_logits.detach())
+        else:
+            train_stats = None
 
         return train_stats
 
@@ -558,34 +609,73 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             learn_kwargs: kwargs for the Stable Baselines `RLModel.learn()`
                 method.
         """
-        if total_timesteps is None:
-            total_timesteps = self.gen_train_timesteps
-        if learn_kwargs is None:
-            learn_kwargs = {}
 
-        with self.logger.accumulate_means("gen"):
-
-            if self._global_step % 10 == 0:
-                eval_freq = 1
-            else:
-                eval_freq = 100000
-
-            self.gen_algo.learn(
-                total_timesteps=total_timesteps,
-                reset_num_timesteps=False,
-                callback=self.gen_callback,
-                n_eval_episodes=3,
-                eval_freq=eval_freq,
-                eval_env=self.venv_eval,
-                **learn_kwargs,
-            )
-            self._global_step += 1
-
-        
-        gen_trajs, ep_lens = self.venv_buffering.pop_trajectories()
-        self._check_fixed_horizon(ep_lens)
-        gen_samples = rollout.flatten_trajectories_with_rew(gen_trajs)
-        self._gen_replay_buffer.store(gen_samples)
+        #
+        # if total_timesteps is None:
+        #     total_timesteps = self.gen_train_timesteps
+        # if learn_kwargs is None:
+        #     learn_kwargs = {}
+        #
+        # with self.logger.accumulate_means("gen"):
+        #
+        #     eval_freq = 100
+        #
+        #     total_timesteps, callback = self.gen_algo._setup_learn(
+        #         total_timesteps=total_timesteps,
+        #         eval_env=self.venv_eval,
+        #         callback=None,
+        #         eval_freq=eval_freq,
+        #         n_eval_episodes=3,
+        #         reset_num_timesteps=False,
+        #         tb_log_name="run",
+        #     )
+        #
+        #     callback.on_training_start(locals(), globals())
+        #
+        #     while self.gen_algo.num_timesteps < total_timesteps:
+        #         rollout = self.gen_algo.collect_rollouts(
+        #             self.gen_algo.env,
+        #             train_freq=self.gen_algo.train_freq,
+        #             action_noise=self.gen_algo.action_noise,
+        #             callback=callback,
+        #             learning_starts=self.gen_algo.learning_starts,
+        #             replay_buffer=self.gen_algo.replay_buffer,
+        #             log_interval=4,
+        #         )
+        #
+        #         if rollout.continue_training is False:
+        #             break
+        #
+        #         if self.gen_algo.num_timesteps > 0 and self.gen_algo.num_timesteps > self.gen_algo.learning_starts:
+        #             # If no `gradient_steps` is specified,
+        #             # do as many gradients steps as steps performed during the rollout
+        #             gradient_steps = self.gen_algo.gradient_steps if self.gen_algo.gradient_steps >= 0 else rollout.episode_timesteps
+        #             # Special case when the user passes `gradient_steps=0`
+        #             if gradient_steps > 0:
+        #                 self.train(batch_size=self.gen_algo.batch_size, gradient_steps=gradient_steps)
+        #
+        #
+        #     callback.on_training_end()
+        #
+        #     # self.gen_algo.collect_rollouts()
+        #
+        #     # self.gen_algo.learn(
+        #     #     total_timesteps=total_timesteps,
+        #     #     reset_num_timesteps=False,
+        #     #     callback=self.gen_callback,
+        #     #     n_eval_episodes=3,
+        #     #     eval_freq=eval_freq,
+        #     #     eval_env=self.venv_eval,
+        #     #     **learn_kwargs,
+        #     # )
+        #     self._global_step += 1
+        #
+        # #TODO-tim make sure this runs for the correct amount (1 episode?)
+        #
+        # gen_trajs, ep_lens = self.venv_buffering.pop_trajectories()
+        # self._check_fixed_horizon(ep_lens)
+        # gen_samples = rollout.flatten_trajectories_with_rew(gen_trajs)
+        # self._gen_replay_buffer.store(gen_samples)
 
     def train(
         self,
@@ -607,6 +697,9 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                 single argument, the round number. Round numbers are in
                 `range(total_timesteps // self.gen_train_timesteps)`.
         """
+
+
+
         n_rounds = total_timesteps // self.gen_train_timesteps
         assert n_rounds >= 1, (
             "No updates (need at least "
@@ -617,21 +710,72 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
 
             start_time = time.time()
 
-            # train agent
-            self.train_gen(self.gen_train_timesteps)
+            #total_timesteps = self.gen_train_timesteps
+            total_timesteps_in = 125
+            last_eval = None
 
-            for iteration in range(self.n_disc_updates_per_round):
-                with networks.training(self.reward_train):
-                    if self._encoder_net.type == "network": ## TODO (Tim) solve networks.evaluating hickupps for Basic Encoder type
-                        with networks.evaluating(self._encoder_net):
-                            self.train_disc()
-                    else:
-                        self.train_disc()
+            with self.logger.accumulate_means("gen"):
 
-                if self._encoder_net.type == "network":
-                    for _ in range(self.get_enc_updates(iteration)):
-                        with networks.training(self._encoder_net), networks.evaluating(self.reward_train):
-                            self.train_enc()
+                eval_freq = 800
+
+                total_timesteps, callback_gen = self.gen_algo._setup_learn(
+                    total_timesteps=total_timesteps_in,
+                    eval_env=self.venv_eval,
+                    callback=None,
+                    eval_freq=eval_freq,
+                    n_eval_episodes=3,
+                    reset_num_timesteps=False,
+                    tb_log_name="run",
+                )
+
+            callback_gen.on_training_start(locals(), globals())
+
+            if self.gen_algo.num_timesteps < 1e4:
+                action_noise = "random"
+            else:
+                action_noise = NormalActionNoise(mean=[0, 0, 0], sigma=[0.1, 0.1, 0.1])
+
+            rollout_gen = self.gen_algo.collect_rollouts(
+                self.gen_algo.env,
+                train_freq=self.gen_algo.train_freq,
+                action_noise=action_noise,
+                callback=callback_gen,
+                learning_starts=self.gen_algo.learning_starts,
+                replay_buffer=self.gen_algo.replay_buffer,
+                log_interval=4,
+            )
+
+            gen_trajs, ep_lens = self.venv_buffering.pop_trajectories()
+            self._check_fixed_horizon(ep_lens)
+            gen_samples = rollout.flatten_trajectories_with_rew(gen_trajs)
+            self._gen_replay_buffer.store(gen_samples)
+
+            print(f"gen_algo_timesteps: {self.gen_algo.num_timesteps}")
+
+            if self.gen_algo.num_timesteps > self.gen_algo.learning_starts:
+                # If no `gradient_steps` is specified,
+                # do as many gradients steps as steps performed during the rollout
+                # gradient_steps = int(rollout_gen.episode_timesteps/ self.n_disc_updates_per_round)
+                gradient_steps = self.n_disc_updates_per_round
+
+                # Special case when the user passes `gradient_steps=0`
+
+                if gradient_steps > 0:
+                    for _ in range(gradient_steps):
+                        with self.logger.accumulate_means("disc"):
+                            with networks.training(self.reward_train):
+                                self.train_disc()
+                    with self.logger.accumulate_means("gen"):
+
+                        if self.gen_algo.num_timesteps > self.gen_algo.learning_starts + 1e3:
+                            update_actor = True
+                        else:
+                            update_actor = False
+                        self.gen_algo.train(batch_size=self.gen_algo.batch_size, gradient_steps=gradient_steps, update_actor=update_actor)
+
+            callback_gen.on_training_end()
+
+            self._global_step += 1
 
             self.logger.record("train_it_time", time.time()-start_time)
 
@@ -639,12 +783,11 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                 callback(r)
             self.logger.dump(self._global_step)
 
-            if r % 10 == 0:
-                for network, iden in zip([self._reward_net, self._encoder_net], ["disc", "enc"]):
-                    minimum, maximum = get_min_max_of_network(network)
-                    self.logger.record(f"{iden}/min", minimum)
-                    self.logger.record(f"{iden}/max", maximum)
-
+            # if r % 10 == 0:
+            #     for network, iden in zip([self._reward_net, self._encoder_net], ["disc", "enc"]):
+            #         minimum, maximum = get_min_max_of_network(network)
+            #         self.logger.record(f"{iden}/min", minimum)
+            #         self.logger.record(f"{iden}/max", maximum)
 
     def get_enc_updates(self, iteration):
         if self.n_enc_updates_per_round >= 1:
@@ -678,6 +821,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             ValueError: `gen_samples` or `expert_samples` batch size is
                 different from `self.demo_batch_size`.
         """
+
         if expert_samples is None:
             expert_samples = self._next_expert_batch()
 

@@ -15,6 +15,7 @@ from stable_baselines3.common import (
 from stable_baselines3.common.noise import NormalActionNoise
 
 from imitation.scripts.common.train import train_ingredient
+from stable_baselines3.common.buffers import ReplayBuffer
 
 rl_ingredient = sacred.Ingredient("rl", ingredients=[train_ingredient])
 logger = logging.getLogger(__name__)
@@ -30,8 +31,6 @@ def config():
         gamma=0.99,
         tau=0.005,
         learning_rate=3e-4, # TODO-tim implement learning rate scheduling
-        train_freq=2,
-        gradient_steps=1,
         target_policy_noise=0.2,
         target_noise_clip=0.5,
         # unverified parameters
@@ -41,6 +40,12 @@ def config():
         # initialized as described in common.actor
         ## Critic should be Dense(400), tanh, Dense(300), tanh, (Dense)
         learning_starts=1000, # 1000 in DAC, 10000 normally for TD3
+        batch_size=100,
+        # Buffer with infinite size
+        replay_buffer_class=ReplayBuffer,
+        buffer_size=100000000,
+        optimize_memory_usage=False,
+        policy_delay=1,       # unclear stuff from D3 hopper baseline implementation
         action_noise=NormalActionNoise(mean=[0, 0, 0], sigma=[0.1, 0.1, 0.1])) # TODO-tim what is action noise used for? how is this set in the original implementation?
     locals()  # quieten flake8
 
@@ -103,16 +108,16 @@ def make_rl_algo(
     # These are different notion of batches, but this seems the closest
     # possible translation, and I would expect the appropriate hyperparameter
     # to be similar between them.
-    if issubclass(rl_cls, on_policy_algorithm.OnPolicyAlgorithm):
-        assert (
-            "n_steps" not in rl_kwargs
-        ), "set 'n_steps' at top-level using 'batch_size'"
-        rl_kwargs["n_steps"] = batch_size // venv.num_envs
-    elif issubclass(rl_cls, off_policy_algorithm.OffPolicyAlgorithm):
-        assert "batch_size" not in rl_kwargs, "set 'batch_size' at top-level"
-        rl_kwargs["batch_size"] = batch_size
-    else:
-        raise TypeError(f"Unsupported RL algorithm '{rl_cls}'")
+    # if issubclass(rl_cls, on_policy_algorithm.OnPolicyAlgorithm):
+    #     assert (
+    #         "n_steps" not in rl_kwargs
+    #     ), "set 'n_steps' at top-level using 'batch_size'"
+    #     rl_kwargs["n_steps"] = batch_size // venv.num_envs
+    # elif issubclass(rl_cls, off_policy_algorithm.OffPolicyAlgorithm):
+    #     assert "batch_size" not in rl_kwargs, "set 'batch_size' at top-level"
+    #     rl_kwargs["batch_size"] = batch_size
+    # else:
+    #     raise TypeError(f"Unsupported RL algorithm '{rl_cls}'")
 
 
     rl_algo = rl_cls(
@@ -120,6 +125,8 @@ def make_rl_algo(
         # policy_kwargs=train["policy_kwargs"],
         env=venv,
         seed=_seed,
+        train_freq=tuple((1, "episode")),
+        gradient_steps=-1,
         **rl_kwargs,
     )
     logger.info(f"RL algorithm: {type(rl_algo)}")
