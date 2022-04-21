@@ -17,6 +17,8 @@ from stable_baselines3.common.noise import NormalActionNoise
 from imitation.scripts.common.train import train_ingredient
 from stable_baselines3.common.buffers import ReplayBuffer
 
+from imitation.scripts.common import common as common_config
+
 rl_ingredient = sacred.Ingredient("rl", ingredients=[train_ingredient])
 logger = logging.getLogger(__name__)
 
@@ -25,6 +27,8 @@ logger = logging.getLogger(__name__)
 def config():
     rl_cls = stable_baselines3.TD3
     batch_size = 2048  # batch size for RL algorithm
+
+    dac_parameters = common_config.get_dac_parameters()
 
     rl_kwargs = dict(
         # parameters taken from DA paper
@@ -35,18 +39,14 @@ def config():
         target_noise_clip=0.5,
         # unverified parameters
         policy="MlpPolicy",
-        ## Actor Network
-        # should be: dense(400), relu, dense(300), relu, dense(actiondim), "tanh"
-        # initialized as described in common.actor
-        ## Critic should be Dense(400), tanh, Dense(300), tanh, (Dense)
-        learning_starts=1000, # 1000 in DAC, 10000 normally for TD3
-        batch_size=100,
+        learning_starts=dac_parameters["min_samples_to_start"],  # 1000 in DAC, 10000 normally for TD3
+        batch_size=dac_parameters["batch_size"],
         # Buffer with infinite size
         replay_buffer_class=ReplayBuffer,
         buffer_size=100000000,
         optimize_memory_usage=False,
-        policy_delay=1,       # unclear stuff from D3 hopper baseline implementation
-        action_noise=NormalActionNoise(mean=[0, 0, 0], sigma=[0.1, 0.1, 0.1])) # TODO-tim what is action noise used for? how is this set in the original implementation?
+        policy_delay=1,
+        action_noise=NormalActionNoise(mean=[0, 0, 0], sigma=[0.1, 0.1, 0.1]))
     locals()  # quieten flake8
 
 # @rl_ingredient.config

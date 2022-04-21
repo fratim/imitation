@@ -21,7 +21,7 @@ train_adversarial:
       - ${learner_enc.config}
       - ${exp_enc.config}
       - ${reward_net.value}
-      - common.wandb_logging
+      - ${wandb.value}
     config_updates:
         common:
             log_dir: logss/

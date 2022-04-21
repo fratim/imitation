@@ -193,7 +193,8 @@ def tensor_iter_norm(
 def hydra_to_sacred(input):
     input_transformed = dict()
     input_transformed["named_configs"] = OmegaConf.to_object(input["named_configs"])
-    if "None" in input_transformed["named_configs"]:
+
+    while "None" in input_transformed["named_configs"]:
         input_transformed["named_configs"].remove("None")
 
     input_transformed["config_updates"] = OmegaConf.to_object(input["config_updates"])

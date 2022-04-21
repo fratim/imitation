@@ -34,6 +34,17 @@ def config():
     max_episode_steps = None  # Set to positive int to limit episode horizons
     env_make_kwargs = {}  # The kwargs passed to `spec.make`.
 
+    dac_parameters = dict(
+        exploration_noise=0.1,
+        actor_lr_initial=1e-3,
+        random_actions=1e4,
+        training_steps=1e6,
+        policy_updates_delay=1e3,
+        updates_per_step=1,
+        batch_size=100,
+        min_samples_to_start=1000
+    )
+
     locals()  # quieten flake8
 
 
@@ -72,6 +83,20 @@ def fast():
     locals()  # quieten flake8
 
 
+@common_ingredient.capture
+def get_dac_parameters():
+    dac_parameters = dict(
+        exploration_noise=0.1,
+        actor_lr_initial=1e-3,
+        random_actions=1e4,
+        training_steps=1e6,
+        policy_updates_delay=1e3,
+        updates_per_step=1,
+        batch_size=100,
+        min_samples_to_start=1000
+    )
+    return dac_parameters
+
 
 @common_ingredient.capture
 def get_reduced_state_space(env_name):
@@ -84,6 +109,8 @@ def get_reduced_state_space(env_name):
         return 0, 1, 2
     else:
         raise NotImplemented(f"reduced State space not yet implemented for env {env_name}")
+
+
 
 
 @common_ingredient.capture

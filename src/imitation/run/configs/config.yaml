@@ -12,6 +12,7 @@ clip_disc: False
 task_name: "gridsearch2"
 
 defaults:
+    - wandb: "no"
     - reward_net: "standard"
     - exp_enc: "identity"
     - learner_enc: "identity"

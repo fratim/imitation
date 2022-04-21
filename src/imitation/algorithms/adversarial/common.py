@@ -18,9 +18,9 @@ from imitation.algorithms import base
 from imitation.data import buffer, rollout, types, wrappers
 from imitation.rewards import reward_nets, reward_wrapper
 from imitation.util import logger, networks, util
+from imitation.scripts.common import common as common_config
 
 import time
-from stable_baselines3.common.noise import NormalActionNoise
 
 def get_wgan_loss_disc(disc_logits, labels_ge_is_one):
     loss = torch.mean(disc_logits[(1 - labels_ge_is_one).bool()]) - torch.mean(disc_logits[labels_ge_is_one.bool()])
@@ -300,7 +300,6 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             lr=disc_lr
         )
 
-
         assert self._disc_opt_kwargs == {}
         if self._encoder_net.type == "network":
             self._encoder_opt = self._disc_opt_cls(
@@ -315,8 +314,8 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             os.makedirs(summary_dir, exist_ok=True)
             self._summary_writer = thboard.SummaryWriter(summary_dir)
 
-        venv = self.venv_buffering = wrappers.BufferingWrapper(self.venv)
-        eval_env = self.venv_eval_buffering = wrappers.BufferingWrapper(venv=eval_env, error_on_premature_reset=False)
+        # venv = self.venv_buffering = wrappers.BufferingWrapper(self.venv)
+        # eval_env = self.venv_eval_buffering = wrappers.BufferingWrapper(venv=eval_env, error_on_premature_reset=False)
 
         if debug_use_ground_truth:
             # Would use an identity reward fn here, but RewardFns can't see rewards.
@@ -339,15 +338,15 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         self.venv_train = self.venv_wrapped
         self.venv_eval = self.venv_eval_wrapped
 
-        if normalize_reward:
-            self.venv_train = vec_env.VecNormalize(
-                self.venv_wrapped,
-                norm_obs=False,
-            )
-            self.venv_eval = vec_env.VecNormalize(
-                self.venv_eval_wrapped,
-                norm_obs=False,
-            )
+        # if normalize_reward:
+        #     self.venv_train = vec_env.VecNormalize(
+        #         self.venv_wrapped,
+        #         norm_obs=False,
+        #     )
+        #     self.venv_eval = vec_env.VecNormalize(
+        #         self.venv_eval_wrapped,
+        #         norm_obs=False,
+        #     )
 
         self.gen_algo.set_env(self.venv_train)
         self.gen_algo.set_logger(self.logger)
@@ -536,41 +535,42 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         Returns:
             Statistics for discriminator (e.g. loss, accuracy).
         """
-        with self.logger.accumulate_means("enc"):
+        # with self.logger.accumulate_means("enc"):
             # optionally write TB summaries for collected ops
-            write_summaries = self._init_tensorboard and self._global_step % 20 == 0
+        write_summaries = self._init_tensorboard and self._global_step % 20 == 0
 
-            # compute loss
-            batch = self._make_enc_train_batch(
-                gen_samples=gen_samples,
+        # compute loss
+        batch = self._make_enc_train_batch(
+            gen_samples=gen_samples,
+        )
+
+        disc_logits = self.logits_gen_is_high_for_encoder(
+            batch["state"],
+            batch["action"],
+            batch["next_state"],
+            batch["done"],
+            batch["log_policy_act_prob"],
+        )
+
+        ## we want the discriminator to predict that this is actually the expert
+        labels = batch["labels_gen_is_one"]*0 # TODO is this correct?
+
+        if self.use_wgan:
+            loss = get_wgan_loss_gen(disc_logits, batch["labels_gen_is_one"])
+        else:
+            loss = F.binary_cross_entropy_with_logits(
+                disc_logits,
+                labels.float()  ## TODO make sure this is correct,
             )
 
-            disc_logits = self.logits_gen_is_high_for_encoder(
-                batch["state"],
-                batch["action"],
-                batch["next_state"],
-                batch["done"],
-                batch["log_policy_act_prob"],
-            )
 
-            ## we want the discriminator to predict that this is actually the expert
-            labels = batch["labels_gen_is_one"]*0 # TODO is this correct?
+        # do gradient step
+        self._encoder_opt.zero_grad()
+        loss.backward()
+        self._encoder_opt.step()
+        self._encoder_step += 1
 
-            if self.use_wgan:
-                loss = get_wgan_loss_gen(disc_logits, batch["labels_gen_is_one"])
-            else:
-                loss = F.binary_cross_entropy_with_logits(
-                    disc_logits,
-                    labels.float()  ## TODO make sure this is correct,
-                )
-
-
-            # do gradient step
-            self._encoder_opt.zero_grad()
-            loss.backward()
-            self._encoder_opt.step()
-            self._encoder_step += 1
-
+        if self._encoder_step % 100 == 0:
             # compute/write stats and TensorBoard data
             with th.no_grad():
                 train_stats = compute_train_stats(
@@ -597,85 +597,8 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         total_timesteps: Optional[int] = None,
         learn_kwargs: Optional[Mapping] = None,
     ) -> None:
-        """Trains the generator to maximize the discriminator loss.
 
-        After the end of training populates the generator replay buffer (used in
-        discriminator training) with `self.disc_batch_size` transitions.
-
-        Args:
-            total_timesteps: The number of transitions to sample from
-                `self.venv_train` during training. By default,
-                `self.gen_train_timesteps`.
-            learn_kwargs: kwargs for the Stable Baselines `RLModel.learn()`
-                method.
-        """
-
-        #
-        # if total_timesteps is None:
-        #     total_timesteps = self.gen_train_timesteps
-        # if learn_kwargs is None:
-        #     learn_kwargs = {}
-        #
-        # with self.logger.accumulate_means("gen"):
-        #
-        #     eval_freq = 100
-        #
-        #     total_timesteps, callback = self.gen_algo._setup_learn(
-        #         total_timesteps=total_timesteps,
-        #         eval_env=self.venv_eval,
-        #         callback=None,
-        #         eval_freq=eval_freq,
-        #         n_eval_episodes=3,
-        #         reset_num_timesteps=False,
-        #         tb_log_name="run",
-        #     )
-        #
-        #     callback.on_training_start(locals(), globals())
-        #
-        #     while self.gen_algo.num_timesteps < total_timesteps:
-        #         rollout = self.gen_algo.collect_rollouts(
-        #             self.gen_algo.env,
-        #             train_freq=self.gen_algo.train_freq,
-        #             action_noise=self.gen_algo.action_noise,
-        #             callback=callback,
-        #             learning_starts=self.gen_algo.learning_starts,
-        #             replay_buffer=self.gen_algo.replay_buffer,
-        #             log_interval=4,
-        #         )
-        #
-        #         if rollout.continue_training is False:
-        #             break
-        #
-        #         if self.gen_algo.num_timesteps > 0 and self.gen_algo.num_timesteps > self.gen_algo.learning_starts:
-        #             # If no `gradient_steps` is specified,
-        #             # do as many gradients steps as steps performed during the rollout
-        #             gradient_steps = self.gen_algo.gradient_steps if self.gen_algo.gradient_steps >= 0 else rollout.episode_timesteps
-        #             # Special case when the user passes `gradient_steps=0`
-        #             if gradient_steps > 0:
-        #                 self.train(batch_size=self.gen_algo.batch_size, gradient_steps=gradient_steps)
-        #
-        #
-        #     callback.on_training_end()
-        #
-        #     # self.gen_algo.collect_rollouts()
-        #
-        #     # self.gen_algo.learn(
-        #     #     total_timesteps=total_timesteps,
-        #     #     reset_num_timesteps=False,
-        #     #     callback=self.gen_callback,
-        #     #     n_eval_episodes=3,
-        #     #     eval_freq=eval_freq,
-        #     #     eval_env=self.venv_eval,
-        #     #     **learn_kwargs,
-        #     # )
-        #     self._global_step += 1
-        #
-        # #TODO-tim make sure this runs for the correct amount (1 episode?)
-        #
-        # gen_trajs, ep_lens = self.venv_buffering.pop_trajectories()
-        # self._check_fixed_horizon(ep_lens)
-        # gen_samples = rollout.flatten_trajectories_with_rew(gen_trajs)
-        # self._gen_replay_buffer.store(gen_samples)
+        raise NotImplemented
 
     def train(
         self,
@@ -706,34 +629,33 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             f"{self.gen_train_timesteps} timesteps, have only "
             f"total_timesteps={total_timesteps})!"
         )
+
+        eval_freq = 800
+        total_timesteps_in = total_timesteps
+
+        #eval_env = self.venv_eval
+        # n_eval_episodes = 3
+
+        total_timesteps, callback_gen = self.gen_algo._setup_learn(
+            total_timesteps=total_timesteps_in,
+            callback=None,
+            eval_env=None,
+            reset_num_timesteps=False,
+            tb_log_name="run",
+        )
+
+        scheduler_actor_lr = th.optim.lr_scheduler.ExponentialLR(self.gen_algo.actor.optimizer, gamma=0.5**(1/100000))
+
         for r in tqdm.tqdm(range(0, n_rounds), desc="round"):
 
             start_time = time.time()
 
-            #total_timesteps = self.gen_train_timesteps
-            total_timesteps_in = 125
-            last_eval = None
-
-            with self.logger.accumulate_means("gen"):
-
-                eval_freq = 800
-
-                total_timesteps, callback_gen = self.gen_algo._setup_learn(
-                    total_timesteps=total_timesteps_in,
-                    eval_env=self.venv_eval,
-                    callback=None,
-                    eval_freq=eval_freq,
-                    n_eval_episodes=3,
-                    reset_num_timesteps=False,
-                    tb_log_name="run",
-                )
-
             callback_gen.on_training_start(locals(), globals())
 
-            if self.gen_algo.num_timesteps < 1e4:
+            if self.gen_algo.num_timesteps < common_config.get_dac_parameters()["random_actions"]:
                 action_noise = "random"
             else:
-                action_noise = NormalActionNoise(mean=[0, 0, 0], sigma=[0.1, 0.1, 0.1])
+                action_noise = self.gen_algo.action_noise
 
             rollout_gen = self.gen_algo.collect_rollouts(
                 self.gen_algo.env,
@@ -745,33 +667,30 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                 log_interval=4,
             )
 
-            gen_trajs, ep_lens = self.venv_buffering.pop_trajectories()
-            self._check_fixed_horizon(ep_lens)
-            gen_samples = rollout.flatten_trajectories_with_rew(gen_trajs)
-            self._gen_replay_buffer.store(gen_samples)
-
-            print(f"gen_algo_timesteps: {self.gen_algo.num_timesteps}")
-
             if self.gen_algo.num_timesteps > self.gen_algo.learning_starts:
-                # If no `gradient_steps` is specified,
-                # do as many gradients steps as steps performed during the rollout
-                # gradient_steps = int(rollout_gen.episode_timesteps/ self.n_disc_updates_per_round)
-                gradient_steps = self.n_disc_updates_per_round
 
-                # Special case when the user passes `gradient_steps=0`
+                gradient_steps = self.n_disc_updates_per_round
 
                 if gradient_steps > 0:
                     for _ in range(gradient_steps):
                         with self.logger.accumulate_means("disc"):
                             with networks.training(self.reward_train):
                                 self.train_disc()
-                    with self.logger.accumulate_means("gen"):
 
-                        if self.gen_algo.num_timesteps > self.gen_algo.learning_starts + 1e3:
+                    if self._encoder_net.type == "network":
+                        for _ in range(gradient_steps):
+                            with self.logger.accumulate_means("enc"):
+                                with networks.training(self._encoder_net):
+                                    self.train_enc()
+
+                    with self.logger.accumulate_means("gen"):
+                        if self.gen_algo.num_timesteps > self.gen_algo.learning_starts + common_config.get_dac_parameters()["policy_updates_delay"]:
                             update_actor = True
                         else:
                             update_actor = False
                         self.gen_algo.train(batch_size=self.gen_algo.batch_size, gradient_steps=gradient_steps, update_actor=update_actor)
+                        scheduler_actor_lr.step()
+
 
             callback_gen.on_training_end()
 
@@ -826,12 +745,20 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             expert_samples = self._next_expert_batch()
 
         if gen_samples is None:
-            if self._gen_replay_buffer.size() == 0:
-                raise RuntimeError(
-                    "No generator samples for training. " "Call `train_gen()` first.",
-                )
-            gen_samples = self._gen_replay_buffer.sample(self.demo_batch_size)
-            gen_samples = types.dataclass_quick_asdict(gen_samples)
+            # if self._gen_replay_buffer.size() == 0:
+            #     raise RuntimeError(
+            #         "No generator samples for training. " "Call `train_gen()` first.",
+            #     )
+            # gen_samples = self._gen_replay_buffer.sample(self.demo_batch_size)
+            # gen_samples = types.dataclass_quick_asdict(gen_samples)
+
+            gen_samples_inter = self.gen_algo.replay_buffer.sample(self.demo_batch_size)
+            gen_samples = {
+                "obs": gen_samples_inter.observations,
+                "acts": gen_samples_inter.actions,
+                "next_obs": gen_samples_inter.next_observations,
+                "dones": gen_samples_inter.dones.squeeze(),
+            }
 
         n_gen = len(gen_samples["obs"])
         n_expert = len(expert_samples["obs"])
@@ -847,6 +774,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         expert_samples = dict(expert_samples)
         gen_samples = dict(gen_samples)
 
+        # TODO-tim get rid of this conversion to numpy, it seems absolutely pointless
         # Convert applicable Tensor values to NumPy.
         for field in dataclasses.fields(types.Transitions):
             k = field.name
@@ -926,21 +854,22 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         """
 
         if gen_samples is None:
-            if self._gen_replay_buffer.size() == 0:
-                raise RuntimeError(
-                    "No generator samples for training. " "Call `train_gen()` first.",
-                )
-            gen_samples = self._gen_replay_buffer.sample(self.demo_batch_size)
-            gen_samples = types.dataclass_quick_asdict(gen_samples)
+            # if self._gen_replay_buffer.size() == 0:
+            #     raise RuntimeError(
+            #         "No generator samples for training. " "Call `train_gen()` first.",
+            #     )
+            # gen_samples = self._gen_replay_buffer.sample(self.demo_batch_size)
+            # gen_samples = types.dataclass_quick_asdict(gen_samples)
+
+            gen_samples_inter = self.gen_algo.replay_buffer.sample(int(self.demo_batch_size/2)) # TODO-tim verify it makes sense to train encoder with half the samples
+            gen_samples = {
+                "obs": gen_samples_inter.observations,
+                "acts": gen_samples_inter.actions,
+                "next_obs": gen_samples_inter.next_observations,
+                "dones": gen_samples_inter.dones.squeeze(),
+            }
 
         n_gen = len(gen_samples["obs"])
-        if not (n_gen == self.demo_batch_size):
-            raise ValueError(
-                "Need to have exactly self.demo_batch_size number of expert and "
-                "generator samples, each. "
-                f"(n_gen={n_gen} "
-                f"demo_batch_size={self.demo_batch_size})",
-            )
 
         # Guarantee that Mapping arguments are in mutable form.
         gen_samples = dict(gen_samples)
