@@ -28,7 +28,7 @@ def config():
     log_format_strs_additional = {}
 
     # Environment config
-    env_name = "seals/CartPole-v0"  # environment to train on
+    env_name = "seals/Hopper-v0"  # environment to train on
     num_vec = 1  # number of environments in VecEnv
     parallel = False  # Use SubprocVecEnv rather than DummyVecEnv
     max_episode_steps = None  # Set to positive int to limit episode horizons

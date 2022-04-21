@@ -34,7 +34,7 @@ def config():
         # parameters taken from DA paper
         gamma=0.99,
         tau=0.005,
-        learning_rate=3e-4, # TODO-tim implement learning rate scheduling
+        learning_rate=1e-3,
         target_policy_noise=0.2,
         target_noise_clip=0.5,
         # unverified parameters
@@ -118,7 +118,6 @@ def make_rl_algo(
     #     rl_kwargs["batch_size"] = batch_size
     # else:
     #     raise TypeError(f"Unsupported RL algorithm '{rl_cls}'")
-
 
     rl_algo = rl_cls(
         # policy=train["policy_cls"],

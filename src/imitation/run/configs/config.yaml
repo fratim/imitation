@@ -1,13 +1,12 @@
 
 
-n_disc: 16
-n_enc: 1
+n_gen: 200
+n_disc: 200
+n_enc: 200
 enc_lr: 1e-3
 disc_lr: 1e-3
-enc_weight_decay: 0
 use_wgan: False
 disc_opt_cls: "adam"
-clip_disc: False
 
 task_name: "gridsearch2"
 
@@ -16,8 +15,8 @@ defaults:
     - reward_net: "standard"
     - exp_enc: "identity"
     - learner_enc: "identity"
-    - env: seals_mountain_car_org
-    - dem: seals_mountain_car_seed_one
+    - env: seals_hopper_org
+    - dem: seals_hopper_seed_five
     - sacred: standard
     - seed: one
     - exec: cluster
@@ -29,7 +28,7 @@ hydra:
         timeout_min: 360
         cpus_per_task: 4
         tasks_per_node: 1
-        mem_gb: 5
+        mem_gb: 15
         nodes: 1
         name: testscript
         _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher

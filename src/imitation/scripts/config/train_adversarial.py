@@ -26,18 +26,17 @@ def defaults():
     show_config = False
 
     total_timesteps = int(5e5)  # Num of environment transitions to sample
-    algorithm_kwargs = dict(
-        demo_batch_size=1024,  # Number of expert samples per discriminator update
-        n_disc_updates_per_round=4,  # Num discriminator updates per generator round
-        disc_lr=1e-3,
-        n_enc_updates_per_round=4,
-        enc_lr=1e-3,
-        enc_weight_decay=0,  # 1e-4
-        # gen_replay_buffer_capacity=2048,
-    )
-    algorithm_specific = {}  # algorithm_specific[algorithm] is merged with config
 
-    checkpoint_interval = 0  # Num epochs between checkpoints (<0 disables)
+    algorithm_kwargs = dict(
+        demo_batch_size=100,  # Number of expert samples per discriminator update
+        n_gen_updates_per_round=1000,
+        n_disc_updates_per_round=1000,  # Num discriminator updates per generator round
+        n_enc_updates_per_round=1000,
+        disc_lr=1e-3,
+        enc_lr=1e-3,
+    )
+
+    checkpoint_interval = 50  # Num epochs between checkpoints (<0 disables)
 
 @train_adversarial_ex.named_config
 def identity():
@@ -75,7 +74,6 @@ def reduced_network():
 
 # Shared settings
 
-MUJOCO_SHARED_LOCALS = dict(rl=dict(rl_kwargs=dict(ent_coef=0.1)))
 
 ANT_SHARED_LOCALS = dict(
     total_timesteps=int(3e7),
@@ -131,14 +129,12 @@ def pendulum():
 
 @train_adversarial_ex.named_config
 def seals_ant():
-    locals().update(**MUJOCO_SHARED_LOCALS)
     locals().update(**ANT_SHARED_LOCALS)
     common = dict(env_name="seals/Ant-v0")
 
 
 @train_adversarial_ex.named_config
 def half_cheetah():
-    locals().update(**MUJOCO_SHARED_LOCALS)
     common = dict(env_name="HalfCheetah-v2")
     rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
     algorithm_specific = dict(
@@ -161,7 +157,6 @@ def half_cheetah():
 
 @train_adversarial_ex.named_config
 def seals_half_cheetah():
-    locals().update(**MUJOCO_SHARED_LOCALS)
     common = dict(env_name="seals/HalfCheetah-v0")
     rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
     algorithm_specific = dict(
@@ -184,7 +179,6 @@ def seals_half_cheetah():
 
 @train_adversarial_ex.named_config
 def hopper():
-    locals().update(**MUJOCO_SHARED_LOCALS)
     common = dict(env_name="Hopper-v3")
     rl = dict(batch_size=0)
     algorithm_specific = dict(
@@ -213,35 +207,11 @@ def hopper():
 
 @train_adversarial_ex.named_config
 def seals_hopper():
-    locals().update(**MUJOCO_SHARED_LOCALS)
     common = dict(env_name="seals/Hopper-v0")
-    rl = dict(batch_size=0)
-    algorithm_specific = dict(
-        gail=dict(total_timesteps=int(8e6)),
-    )
-    reward = dict(
-        algorithm_specific=dict(
-            gail=dict(
-                net_cls=reward_nets.BasicRewardNet,
-                net_kwargs=dict(),
-            ),
-        ),
-    )
-    algorithm_kwargs = dict(
-        # Number of discriminator updates after each round of generator updates
-        n_disc_updates_per_round=1000,
-        disc_lr=1e-3,
-        n_enc_updates_per_round=1,
-        enc_lr=1e-3,
-        enc_weight_decay=0,  # 1e-4
-        # Equivalent to no replay buffer if batch size is the same
-        # gen_replay_buffer_capacity=16384,
-        demo_batch_size=100,
-    )
+
 
 @train_adversarial_ex.named_config
 def seals_humanoid():
-    locals().update(**MUJOCO_SHARED_LOCALS)
     common = dict(env_name="seals/Humanoid-v0")
     total_timesteps = int(4e6)
 
@@ -254,7 +224,6 @@ def reacher():
 
 @train_adversarial_ex.named_config
 def seals_swimmer():
-    locals().update(**MUJOCO_SHARED_LOCALS)
     common = dict(env_name="seals/Swimmer-v0")
     rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
     algorithm_specific = dict(
@@ -278,7 +247,6 @@ def seals_swimmer():
 
 @train_adversarial_ex.named_config
 def seals_walker():
-    locals().update(**MUJOCO_SHARED_LOCALS)
     common = dict(env_name="seals/Walker2d-v0")
     # rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
     rl = dict(batch_size=16384)
