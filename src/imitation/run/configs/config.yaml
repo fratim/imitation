@@ -1,13 +1,14 @@
 
 
-n_gen: 200
+n_gen: 1
 n_disc: 200
-n_enc: 200
+n_enc: 1
 enc_lr: 1e-3
 disc_lr: 1e-3
+rl_lr: 1e-4
 use_wgan: False
 disc_opt_cls: "adam"
-
+alt_enc_disc: False
 task_name: "gridsearch2"
 
 defaults:
@@ -25,8 +26,11 @@ defaults:
 hydra:
     launcher:
         submitit_folder: logs/multiruns/.submitit/%j
-        timeout_min: 360
+        timeout_min: 2000
         cpus_per_task: 4
+#        gpus_per_node: 1
+#        partition: gpu
+#        constraint: p40
         tasks_per_node: 1
         mem_gb: 15
         nodes: 1

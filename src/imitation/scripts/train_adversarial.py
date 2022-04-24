@@ -7,6 +7,7 @@ from typing import Any, Mapping, Type
 
 import sacred.commands
 import torch as th
+import torch.jit
 from sacred.observers import FileStorageObserver
 
 from imitation.algorithms.adversarial import airl as airl_algo
@@ -22,18 +23,51 @@ from imitation.scripts.common import common as common_config
 logger = logging.getLogger("imitation.scripts.train_adversarial")
 
 
+def init_networks(load_path, venv, expert_trajs, encoder_learner_kwargs):
+    if load_path is None:
+        gen_algo = rl.make_rl_algo(venv)
+        encoder_net_expert = encoder.make_encoder_net(**demonstrations.get_encoder_kwargs(expert_trajs=expert_trajs))
+        encoder_net_learner = encoder.make_encoder_net(venv=venv, output_dim=encoder_net_expert.output_dimension,
+                                                       **encoder_learner_kwargs)
+        reward_net = reward.make_reward_net(input_dimension=encoder_net_expert.output_dimension * 2)
+    else:
+
+        gen_algo = rl.load_rl_algo(load_path=os.path.join(load_path, "gen_policy", "model.zip"))
+
+        assert "network" not in demonstrations.get_encoder_kwargs(expert_trajs=expert_trajs)["encoder_type"]
+        encoder_net_expert = encoder.make_encoder_net(**demonstrations.get_encoder_kwargs(expert_trajs=expert_trajs))
+
+        if "network" in encoder_learner_kwargs["encoder_type"]:
+            encoder_net_learner = torch.jit.load(os.path.join(load_path, "encoder_net.pt"))
+        else:
+            encoder_net_learner = encoder.make_encoder_net(venv=venv, output_dim=encoder_net_expert.output_dimension,
+                                                           **encoder_learner_kwargs)
+
+        reward_net = torch.load(os.path.join(load_path, "reward_train.pt"))
+        reward_net = reward_net.base
+
+    return gen_algo, encoder_net_expert, encoder_net_learner, reward_net
+
 def save(trainer, save_path):
     """Save discriminator and generator."""
     # We implement this here and not in Trainer since we do not want to actually
     # serialize the whole Trainer (including e.g. expert demonstrations).
     os.makedirs(save_path, exist_ok=True)
-    th.save(trainer.reward_train, os.path.join(save_path, "reward_train.pt"))
-    th.save(trainer.reward_test, os.path.join(save_path, "reward_test.pt"))
+    th.save(trainer._reward_net, os.path.join(save_path, "reward_test.pt"))
     serialize.save_stable_model(
         os.path.join(save_path, "gen_policy"),
         trainer.gen_algo,
     )
 
+    import pdb
+    pdb.set_trace()
+
+    ## TODO verify this is working poperly
+
+    if trainer._encoder_net.type == "network":
+        th.save(trainer._encoder_net, os.path.join(save_path, "encoder_net.pt"))
+    if trainer._encoder_net_expert.type == "network":
+        th.save(trainer._encoder_net_expert, os.path.join(save_path, "encoder_net_expert.pt"))
 
 def _add_hook(ingredient: sacred.Ingredient) -> None:
     # This is an ugly hack around Sacred config brokenness.
@@ -114,13 +148,10 @@ def train_adversarial(
     venv = common_config.make_venv()
     eval_env = common_config.make_venv(num_vec=1, parallel=False)
 
-    gen_algo = rl.make_rl_algo(venv)
+    load_path = "/work/frtim/airl_runs/red_basev5/2022-04-23_14-31-03/dem=seals_hopper_seed_three,env=seals_hopper_org,exp_enc=reduced,learner_enc=reduced,n_disc=1000,rl_lr=0.001,seed=six,task_name=red_basev5,wandb=yes/logss/checkpoints/00900"
+    # load_path = None
 
-    encoder_net_expert = encoder.make_encoder_net(**demonstrations.get_encoder_kwargs(expert_trajs=expert_trajs))
-
-    encoder_net_learner = encoder.make_encoder_net(venv=venv, output_dim=encoder_net_expert.output_dimension, **encoder_learner_kwargs)
-
-    reward_net = reward.make_reward_net(input_dimension=encoder_net_expert.output_dimension*2)
+    gen_algo, encoder_net_expert, encoder_net_learner, reward_net = init_networks(load_path, venv, expert_trajs, encoder_learner_kwargs)
 
     logger.info(f"Using '{algo_cls}' algorithm")
     algorithm_kwargs = dict(algorithm_kwargs)

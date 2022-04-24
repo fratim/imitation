@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 def config():
     rl_cls = stable_baselines3.TD3
     batch_size = 2048  # batch size for RL algorithm
+    lr = 1e-3
 
     dac_parameters = common_config.get_dac_parameters()
 
@@ -34,7 +35,7 @@ def config():
         # parameters taken from DA paper
         gamma=0.99,
         tau=0.005,
-        learning_rate=1e-3,
+        learning_rate=lr,
         target_policy_noise=0.2,
         target_noise_clip=0.5,
         # unverified parameters
@@ -130,4 +131,34 @@ def make_rl_algo(
     )
     logger.info(f"RL algorithm: {type(rl_algo)}")
     logger.info(f"Policy network summary:\n {rl_algo.policy}")
+    return rl_algo
+
+
+@rl_ingredient.capture
+def load_rl_algo(
+    rl_cls: Type[base_class.BaseAlgorithm],
+    load_path: str,
+) -> base_class.BaseAlgorithm:
+    """Instantiates a Stable Baselines3 RL algorithm.
+
+    Args:
+        venv: The vectorized environment to train on.
+        rl_cls: Type of a Stable Baselines3 RL algorithm.
+        batch_size: The batch size of the RL algorithm.
+        rl_kwargs: Keyword arguments for RL algorithm constructor.
+        train: Configuration for the train ingredient. We need the
+            policy_cls and policy_kwargs component.
+
+    Returns:
+        The RL algorithm.
+
+    Raises:
+        ValueError: `gen_batch_size` not divisible by `venv.num_envs`.
+        TypeError: `rl_cls` is neither `OnPolicyAlgorithm` nor `OffPolicyAlgorithm`.
+    """
+    rl_algo = rl_cls.load(load_path)
+
+    logger.info(f"RL algorithm: {type(rl_algo)}")
+    logger.info(f"Policy network summary:\n {rl_algo.policy}")
+
     return rl_algo

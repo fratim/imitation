@@ -12,12 +12,13 @@ from stable_baselines3.common.vec_env import VecEnvWrapper
 
 from imitation.data import rollout, types
 from imitation.policies import serialize
+from imitation.policies.serialize import load_policy
 from imitation.rewards import reward_wrapper
 from imitation.rewards.serialize import load_reward
 from imitation.scripts.common import common
 from imitation.scripts.config.eval_policy import eval_policy_ex
 from imitation.util import video_wrapper
-from xvfbwrapper import Xvfb
+# from xvfbwrapper import Xvfb
 
 
 class InteractiveRender(VecEnvWrapper):
@@ -107,9 +108,12 @@ def eval_policy(
             venv = reward_wrapper.RewardVecEnvWrapper(venv, reward_fn)
             logging.info(f"Wrapped env in reward {reward_type} from {reward_path}.")
 
+        import pdb
+        pdb.set_trace()
+
         policy = None
         if policy_type is not None:
-            policy = serialize.load_policy(policy_type, policy_path, venv)
+            policy = load_policy(policy_type, policy_path, venv)
         trajs = rollout.generate_trajectories(policy, venv, sample_until)
 
         if rollout_save_path:
@@ -121,23 +125,25 @@ def eval_policy(
 
 
 def main_console(parameters=None, flag="default"):
-    vdisplay = Xvfb(width=1024, height=768, colordepth=24)
-    vdisplay.start()
+    # vdisplay = Xvfb(width=1024, height=768, colordepth=24)
+    # vdisplay.start()
 
-    try:
-        observer = FileStorageObserver(osp.join("output", "sacred", "eval_policy", flag))
-        eval_policy_ex.observers.append(observer)
-        if parameters is None:
-            eval_policy_ex.run_commandline()
-        elif isinstance(parameters, str):
-            eval_policy_ex.run_commandline(parameters)
-        else:
-            eval_policy_ex.run(config_updates=parameters["config_updates"], named_configs=parameters["named_configs"])
-    finally:
-        # always either wrap your usage of Xvfb() with try / finally,
-        # or alternatively use Xvfb as a context manager.
-        # If you don't, you'll probably end up with a bunch of junk in /tmp
-        vdisplay.stop()
+    # try:
+    observer = FileStorageObserver(osp.join("output", "sacred", "eval_policy", flag))
+    eval_policy_ex.observers.append(observer)
+    if parameters is None:
+        eval_policy_ex.run_commandline()
+    elif isinstance(parameters, str):
+        eval_policy_ex.run_commandline(parameters)
+    else:
+        eval_policy_ex.run(config_updates=parameters["config_updates"], named_configs=parameters["named_configs"])
+    # except:
+    #     print("SOME ERROR")
+    # finally:
+    #     # always either wrap your usage of Xvfb() with try / finally,
+    #     # or alternatively use Xvfb as a context manager.
+    #     # If you don't, you'll probably end up with a bunch of junk in /tmp
+    #     # vdisplay.stop()
 
 
 if __name__ == "__main__":  # pragma: no cover

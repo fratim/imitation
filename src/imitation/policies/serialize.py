@@ -99,6 +99,7 @@ def _add_stable_baselines_policies(classes):
 
 STABLE_BASELINES_CLASSES = {
     "ppo": "stable_baselines3:PPO",
+    "td3": "stable_baselines3:TD3",
 }
 _add_stable_baselines_policies(STABLE_BASELINES_CLASSES)
 
