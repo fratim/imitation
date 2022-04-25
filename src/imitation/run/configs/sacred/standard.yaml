@@ -31,6 +31,8 @@ train_adversarial:
         demonstrations:
             rollout_path: ${exec.output_dir}/airl_saved/rl_demos/${dem.name}/logss/rollouts/final.pkl
         seed: ${seed.value}
+        rl:
+            lr: ${rl_lr}
         algorithm_kwargs:
             n_gen_updates_per_round: ${n_enc}
             n_disc_updates_per_round: ${n_disc}
@@ -39,6 +41,7 @@ train_adversarial:
             disc_lr: ${disc_lr}
             use_wgan: ${use_wgan}
             disc_opt_cls: ${disc_opt_cls}
+            alt_enc_disc: ${alt_enc_disc}
 
 eval_irl_policy:
     named_configs:

@@ -29,6 +29,7 @@ def config():
     batch_size = 2048  # batch size for RL algorithm
 
     dac_parameters = common_config.get_dac_parameters()
+    lr = 1e-3
 
     rl_kwargs = dict(
         # parameters taken from DA paper
