@@ -11,7 +11,7 @@ demonstrator:
 
 n_gen: 1
 n_disc: 1000
-n_enc: 0.01
+n_enc: 1
 enc_lr: 1e-3
 disc_lr: 1e-3
 use_wgan: False

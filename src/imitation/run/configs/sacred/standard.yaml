@@ -24,7 +24,7 @@ train_adversarial:
                 wandb_name_prefix: ${task_name}
         demonstrations:
 #            rollout_path: ${output_dir}/trained_rl_policies/${environment.name}/model${demonstrator.model}/rollouts/final.pkl
-            rollout_path: /work/frtim/airl_saved/rl_demos/env=seals_hopper_org,seed=three/logss/rollouts/final.pkl
+            rollout_path: /work/frtim/airl_saved/rl_demos/env=seals_hopper_trunc,seed=three/logss/rollouts/final.pkl
         seed: ${seed}
         algorithm_kwargs:
             n_gen_updates_per_round: ${n_enc}

@@ -370,7 +370,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         self._disc_step += 1
 
         # compute/write stats and TensorBoard data
-        if self._disc_step % 2000 == 0:
+        if self._disc_step % 200 == 0:
             with th.no_grad():
                 train_stats = compute_train_stats(
                     disc_logits,
@@ -477,8 +477,8 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
 
             action_noise = "random" if self.gen_algo.num_timesteps < common_config.get_dac_parameters()["random_actions"] else self.gen_algo.action_noise
 
-            if self._disc_step + 2000 > self.gen_algo.replay_buffer.size():
-
+            if self._disc_step + 2000 > self.gen_algo.num_timesteps:
+            # if self._disc_step + 2000 > self.gen_algo.replay_buffer.size():
                 rollout_gen = self.gen_algo.collect_rollouts(
                     self.gen_algo.env,
                     train_freq=self.gen_algo.train_freq,
@@ -486,7 +486,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                     callback=callback_gen,
                     learning_starts=self.gen_algo.learning_starts,
                     replay_buffer=self.gen_algo.replay_buffer,
-                    log_interval=1,
+                    log_interval=4,
                 )
 
             assert self.actor_lr_half_steps == 0
@@ -500,28 +500,29 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                         with networks.training(self.reward_train):
                             self.train_disc()
 
-                if self.alt_enc_disc:
-                    assert self.n_disc_updates_per_round > 1
-                    assert self.n_enc_updates_per_round > 1
-                    product = self.n_disc_updates_per_round * self.n_enc_updates_per_round
-                    for i in range(product):
-                        if i % self.n_disc_updates_per_round == 0:
-                            with self.logger.accumulate_means("enc"):
-                                if self._encoder_net.type == "network":
-                                    self.train_enc()
-                        if i % self.n_enc_updates_per_round == 0:
-                            with self.logger.accumulate_means("gen"):
-                                update_actor = True if self.gen_algo.num_timesteps > self.gen_algo.learning_starts + common_config.get_dac_parameters()["policy_updates_delay"] else False
-                                self.gen_algo.train(batch_size=self.gen_algo.batch_size, gradient_steps=1, update_actor=update_actor)
-                else:
-                    with self.logger.accumulate_means("enc"):
-                        if self._encoder_net.type == "network":
-                            for _ in range(self.n_enc_updates_per_round):
-                                self.train_enc()
+                # if self.alt_enc_disc:
+                #     assert self.n_disc_updates_per_round > 1
+                #     assert self.n_enc_updates_per_round > 1
+                #     product = self.n_disc_updates_per_round * self.n_enc_updates_per_round
+                #     for i in range(product):
+                #         if i % self.n_disc_updates_per_round == 0:
+                #             with self.logger.accumulate_means("enc"):
+                #                 if self._encoder_net.type == "network":
+                #                     self.train_enc()
+                #         if i % self.n_enc_updates_per_round == 0:
+                #             with self.logger.accumulate_means("gen"):
+                #                 update_actor = True if self.gen_algo.num_timesteps > self.gen_algo.learning_starts + common_config.get_dac_parameters()["policy_updates_delay"] else False
+                #                 self.gen_algo.train(batch_size=self.gen_algo.batch_size, gradient_steps=1, update_actor=update_actor)
+                # else:
 
-                    with self.logger.accumulate_means("gen"):
-                        update_actor = True if self.gen_algo.num_timesteps > self.gen_algo.learning_starts + common_config.get_dac_parameters()["policy_updates_delay"] else False
-                        self.gen_algo.train(batch_size=self.gen_algo.batch_size, gradient_steps=self.n_gen_updates_per_round, update_actor=update_actor)
+                with self.logger.accumulate_means("enc"):
+                    if self._encoder_net.type == "network":
+                        for _ in range(self.n_enc_updates_per_round):
+                            self.train_enc()
+
+                with self.logger.accumulate_means("gen"):
+                    update_actor = True if self.gen_algo.num_timesteps > self.gen_algo.learning_starts + common_config.get_dac_parameters()["policy_updates_delay"] else False
+                    self.gen_algo.train(batch_size=self.gen_algo.batch_size, gradient_steps=self.n_gen_updates_per_round, update_actor=update_actor)
 
 
             callback_gen.on_training_end()
