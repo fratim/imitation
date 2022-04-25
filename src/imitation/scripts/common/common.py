@@ -87,7 +87,7 @@ def fast():
 def get_dac_parameters():
     dac_parameters = dict(
         exploration_noise=0.1,
-        actor_lr_initial=1e-3,
+        lr_initial=1e-3,
         random_actions=1e4,
         training_steps=1e6,
         policy_updates_delay=1e3,

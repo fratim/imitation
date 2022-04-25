@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 def config():
     rl_cls = stable_baselines3.TD3
     batch_size = 2048  # batch size for RL algorithm
-    lr = 1e-3
 
     dac_parameters = common_config.get_dac_parameters()
 
@@ -35,7 +34,7 @@ def config():
         # parameters taken from DA paper
         gamma=0.99,
         tau=0.005,
-        learning_rate=lr,
+        learning_rate=dac_parameters["lr_initial"],
         target_policy_noise=0.2,
         target_noise_clip=0.5,
         # unverified parameters

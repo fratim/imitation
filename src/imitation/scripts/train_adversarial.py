@@ -53,17 +53,11 @@ def save(trainer, save_path):
     # We implement this here and not in Trainer since we do not want to actually
     # serialize the whole Trainer (including e.g. expert demonstrations).
     os.makedirs(save_path, exist_ok=True)
-    th.save(trainer._reward_net, os.path.join(save_path, "reward_test.pt"))
+    th.save(trainer._reward_net, os.path.join(save_path, "reward_net.pt"))
     serialize.save_stable_model(
         os.path.join(save_path, "gen_policy"),
         trainer.gen_algo,
     )
-
-    import pdb
-    pdb.set_trace()
-
-    ## TODO verify this is working poperly
-
     if trainer._encoder_net.type == "network":
         th.save(trainer._encoder_net, os.path.join(save_path, "encoder_net.pt"))
     if trainer._encoder_net_expert.type == "network":
@@ -148,8 +142,8 @@ def train_adversarial(
     venv = common_config.make_venv()
     eval_env = common_config.make_venv(num_vec=1, parallel=False)
 
-    load_path = "/work/frtim/airl_runs/red_basev5/2022-04-23_14-31-03/dem=seals_hopper_seed_three,env=seals_hopper_org,exp_enc=reduced,learner_enc=reduced,n_disc=1000,rl_lr=0.001,seed=six,task_name=red_basev5,wandb=yes/logss/checkpoints/00900"
-    # load_path = None
+    # load_path = "/work/frtim/airl_runs/red_basev5/2022-04-23_14-31-03/dem=seals_hopper_seed_three,env=seals_hopper_org,exp_enc=reduced,learner_enc=reduced,n_disc=1000,rl_lr=0.001,seed=six,task_name=red_basev5,wandb=yes/logss/checkpoints/00900"
+    load_path = None
 
     gen_algo, encoder_net_expert, encoder_net_learner, reward_net = init_networks(load_path, venv, expert_trajs, encoder_learner_kwargs)
 

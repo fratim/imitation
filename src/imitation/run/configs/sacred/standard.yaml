@@ -1,26 +1,20 @@
-train_rl:
-    named_configs: ${run_test.train_rl.named_configs}
-    config_updates:
-        common:
-            log_dir: logss/
-        seed: ${seed.value}
-
 eval_rl_policy:
+    model: 0
     named_configs:
-        - ${env.name}
+        - ${environment.name}
     config_updates:
-        policy_path: /users/frtim/Code_onlyremote/rl-baselines3-zoo/logs/td3/seals/Hopper-v0_1
+        policy_path: ${output_dir}/trained_rl_policies/${environment.name}/model${sacred.eval_rl_policy.model}
         policy_type: td3
         videos: 0
-        seed: ${seed.value}
+        seed: ${seed}
+        rollout_save_path: ${output_dir}/trained_rl_policies/${environment.name}/model${sacred.eval_rl_policy.model}/rollouts/final.pkl
 
 train_adversarial:
     command_name: gail
     named_configs:
-      - ${env.name}
+      - ${environment.name}
       - ${learner_enc.config}
       - ${exp_enc.config}
-      - ${reward_net.value}
       - ${wandb.value}
     config_updates:
         common:
@@ -29,10 +23,9 @@ train_adversarial:
                 wandb_tag: ${task_name}
                 wandb_name_prefix: ${task_name}
         demonstrations:
-            rollout_path: ${exec.output_dir}/airl_saved/rl_demos/${dem.name}/logss/rollouts/final.pkl
-        seed: ${seed.value}
-        rl:
-            lr: ${rl_lr}
+#            rollout_path: ${output_dir}/trained_rl_policies/${environment.name}/model${demonstrator.model}/rollouts/final.pkl
+            rollout_path: /work/frtim/airl_saved/rl_demos/env=seals_hopper_org,seed=three/logss/rollouts/final.pkl
+        seed: ${seed}
         algorithm_kwargs:
             n_gen_updates_per_round: ${n_enc}
             n_disc_updates_per_round: ${n_disc}
@@ -42,12 +35,13 @@ train_adversarial:
             use_wgan: ${use_wgan}
             disc_opt_cls: ${disc_opt_cls}
             alt_enc_disc: ${alt_enc_disc}
+            actor_lr_half_steps: ${actor_lr_half_steps}
 
 eval_irl_policy:
     named_configs:
-        - ${env.name}
+        - ${environment.name}
     config_updates:
         policy_path: logss/checkpoints/final/gen_policy
         policy_type: ppo
         videos: 1
-        seed: ${seed.value}
+        seed: ${seed}

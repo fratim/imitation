@@ -1,26 +1,32 @@
+seed: 0
+env: "hopper"
+dem: "hopper"
+dem_mod: 0
 
+environment:
+    name: seals_${env}
+demonstrator:
+    name: seals_${dem}
+    model: ${dem_mod}
 
 n_gen: 1
-n_disc: 200
-n_enc: 1
+n_disc: 1000
+n_enc: 0.01
 enc_lr: 1e-3
 disc_lr: 1e-3
-rl_lr: 1e-4
 use_wgan: False
 disc_opt_cls: "adam"
 alt_enc_disc: False
 task_name: "gridsearch2"
+output_dir: "/work/frtim"
+actor_lr_half_steps: 0
 
 defaults:
-    - wandb: "no"
-    - reward_net: "standard"
+    - where: "cpu"
+    - wandb: "yes"
     - exp_enc: "identity"
     - learner_enc: "identity"
-    - env: seals_hopper_org
-    - dem: seals_hopper_seed_five
     - sacred: standard
-    - seed: one
-    - exec: cluster
     - override /hydra/launcher: submitit_slurm
 
 hydra:
@@ -28,9 +34,9 @@ hydra:
         submitit_folder: logs/multiruns/.submitit/%j
         timeout_min: 2000
         cpus_per_task: 4
-#        gpus_per_node: 1
-#        partition: gpu
-#        constraint: p40
+        gpus_per_node: ${where.gpus_per_node}
+        partition: ${where.partition}
+        constraint: ${where.constraint}
         tasks_per_node: 1
         mem_gb: 15
         nodes: 1
@@ -44,9 +50,9 @@ hydra:
         setup: null
 
     run:
-        dir: ${exec.output_dir}/airl_runs/${task_name}/${env.name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
+        dir: ${output_dir}/airl_runs/${task_name}/${environment.name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
     sweep:
-        dir: ${exec.output_dir}/airl_runs/${task_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
+        dir: ${output_dir}/airl_runs/${task_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
         subdir: ${hydra.job.override_dirname}
 
 # add job id

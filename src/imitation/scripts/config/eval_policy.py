@@ -13,10 +13,10 @@ eval_policy_ex = sacred.Experiment(
 @eval_policy_ex.config
 def replay_defaults():
     eval_n_timesteps = int(1e4)  # Min timesteps to evaluate, optional.
-    eval_n_episodes = None  # Num episodes to evaluate, optional.
+    eval_n_episodes = None  #set this to 100 to generate rollouts 3um episodes to evaluate, optional.
 
     videos = True  # save video files
-    video_kwargs = {}  # arguments to VideoWrapper
+    video_kwargs = {}  # argumeents to VideoWrapper
     render = False  # render to screen
     render_fps = 60  # -1 to render at full speed
 
@@ -60,6 +60,10 @@ def half_cheetah():
     common = dict(env_name="HalfCheetah-v2", num_vec=1, parallel=False)
 
 @eval_policy_ex.named_config
+def seals_half_cheetah():
+    common = dict(env_name="seals/HalfCheetah-v0", num_vec=1, parallel=False)
+
+@eval_policy_ex.named_config
 def half_cheetah_trunc():
     common = dict(env_name="HalfCheetah-v2", num_vec=1, parallel=False)
 
@@ -90,13 +94,11 @@ def mountain_car_trunc():
 @eval_policy_ex.named_config
 def seals_mountain_car():
     eval_n_timesteps = int(200)
-    eval_n_episodes = 1
     common = dict(env_name="seals/MountainCar-v0", num_vec=1, parallel=False)
 
 @eval_policy_ex.named_config
 def seals_mountain_car_trunc():
     eval_n_timesteps = int(200)
-    eval_n_episodes = 1
     common = dict(env_name="seals/MountainCar-v0", num_vec=1, parallel=False)
 
 
@@ -112,8 +114,6 @@ def reacher():
 
 @eval_policy_ex.named_config
 def seals_ant():
-    eval_n_timesteps = int(1000)
-    eval_n_episodes = 1
     common = dict(env_name="seals/Ant-v0", num_vec=1, parallel=False)
 
 

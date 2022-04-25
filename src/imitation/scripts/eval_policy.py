@@ -108,9 +108,6 @@ def eval_policy(
             venv = reward_wrapper.RewardVecEnvWrapper(venv, reward_fn)
             logging.info(f"Wrapped env in reward {reward_type} from {reward_path}.")
 
-        import pdb
-        pdb.set_trace()
-
         policy = None
         if policy_type is not None:
             policy = load_policy(policy_type, policy_path, venv)

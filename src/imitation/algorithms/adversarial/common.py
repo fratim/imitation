@@ -192,8 +192,9 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         init_tensorboard: bool = False,
         init_tensorboard_graph: bool = False,
         use_wgan: bool = False,
-        eval_env: None,
-        alt_enc_disc: False,
+        eval_env=None,
+        alt_enc_disc=False,
+        actor_lr_half_steps=0,
     ):
         if disc_opt_cls == "adam":
             disc_opt_cls = th.optim.Adam
@@ -211,6 +212,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             allow_variable_horizon=False,
         )
 
+        self.actor_lr_half_steps = actor_lr_half_steps
         self._global_step = 0
         self._disc_step = 0
         self._encoder_step = 0
@@ -222,7 +224,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         self.gen_algo = gen_algo
         self._reward_net = reward_net.to(gen_algo.device)
 
-        self.actor_initial_lr = copy.deepcopy(self.gen_algo.actor.optimizer.param_groups[0]["lr"])
+        # self.actor_initial_lr = copy.deepcopy(self.gen_algo.actor.optimizer.param_groups[0]["lr"])
 
         self._encoder_net = encoder_net
         self._encoder_net_expert = encoder_net_expert
@@ -448,9 +450,6 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         callback: Optional[Callable[[int], None]] = None,
     ) -> None:
 
-        # TODO consider whether it makes sense to train the policy/encoder alternatingly and the discriminator only every n steps (pretending that the encoder was actually part of the policy)
-
-
         n_rounds = total_timesteps // self.n_disc_updates_per_round
 
         eval_freq = 5000
@@ -469,8 +468,6 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             reset_num_timesteps=False,
             tb_log_name="run",
         )
-        # 100000
-        #scheduler_actor_lr = th.optim.lr_scheduler.ExponentialLR(self.gen_algo.actor.optimizer, gamma=0.5**(1/100)) # TODO verify that this actually works
 
         for r in tqdm.tqdm(range(0, n_rounds), desc="round"):
 
@@ -480,9 +477,6 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
 
             action_noise = "random" if self.gen_algo.num_timesteps < common_config.get_dac_parameters()["random_actions"] else self.gen_algo.action_noise
 
-            # assert self.gen_algo.num_timesteps == self.gen_algo.replay_buffer.size
-
-            # if self._disc_step + 2000 > self.gen_algo.num_timesteps:
             if self._disc_step + 2000 > self.gen_algo.replay_buffer.size():
 
                 rollout_gen = self.gen_algo.collect_rollouts(
@@ -495,6 +489,10 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                     log_interval=1,
                 )
 
+            assert self.actor_lr_half_steps == 0
+            # if self.actor_lr_half_steps!= 0:
+            #     self.gen_algo.actor.optimizer.param_groups[0]["lr"] = self.actor_initial_lr * 0.5 ** (self.gen_algo.num_timesteps // self.actor_lr_half_steps)
+
             if self.gen_algo.num_timesteps > self.gen_algo.learning_starts:
 
                 with self.logger.accumulate_means("disc"):
@@ -503,6 +501,8 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                             self.train_disc()
 
                 if self.alt_enc_disc:
+                    assert self.n_disc_updates_per_round > 1
+                    assert self.n_enc_updates_per_round > 1
                     product = self.n_disc_updates_per_round * self.n_enc_updates_per_round
                     for i in range(product):
                         if i % self.n_disc_updates_per_round == 0:
@@ -513,7 +513,6 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                             with self.logger.accumulate_means("gen"):
                                 update_actor = True if self.gen_algo.num_timesteps > self.gen_algo.learning_starts + common_config.get_dac_parameters()["policy_updates_delay"] else False
                                 self.gen_algo.train(batch_size=self.gen_algo.batch_size, gradient_steps=1, update_actor=update_actor)
-                                self.gen_algo.actor.optimizer.param_groups[0]["lr"] = self.actor_initial_lr * 0.5**(self.gen_algo.num_timesteps // 100000)
                 else:
                     with self.logger.accumulate_means("enc"):
                         if self._encoder_net.type == "network":
@@ -523,7 +522,6 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                     with self.logger.accumulate_means("gen"):
                         update_actor = True if self.gen_algo.num_timesteps > self.gen_algo.learning_starts + common_config.get_dac_parameters()["policy_updates_delay"] else False
                         self.gen_algo.train(batch_size=self.gen_algo.batch_size, gradient_steps=self.n_gen_updates_per_round, update_actor=update_actor)
-                        self.gen_algo.actor.optimizer.param_groups[0]["lr"] = self.actor_initial_lr * 0.5**(self.gen_algo.num_timesteps // 100000)
 
 
             callback_gen.on_training_end()
@@ -609,8 +607,6 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
 
         return batch_dict
 
-
-    # TODO test speedup when expert trajectories are directly loaded on GPU
 
 
     def _make_enc_train_batch(
