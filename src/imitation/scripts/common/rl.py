@@ -30,11 +30,12 @@ def config():
 
     dac_parameters = common_config.get_dac_parameters()
 
+    # TODO fix that learning rate is taken from dac_parameters
     rl_kwargs = dict(
         # parameters taken from DA paper
         gamma=0.99,
         tau=0.005,
-        learning_rate=dac_parameters["lr_initial"],
+        learning_rate=0.001,
         target_policy_noise=0.2,
         target_noise_clip=0.5,
         # unverified parameters

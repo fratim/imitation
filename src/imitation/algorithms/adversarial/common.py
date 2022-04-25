@@ -212,7 +212,6 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             allow_variable_horizon=False,
         )
 
-        self.actor_lr_half_steps = actor_lr_half_steps
         self._global_step = 0
         self._disc_step = 0
         self._encoder_step = 0
@@ -370,7 +369,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         self._disc_step += 1
 
         # compute/write stats and TensorBoard data
-        if self._disc_step % 200 == 0:
+        if self._disc_step % 2000 == 0:
             with th.no_grad():
                 train_stats = compute_train_stats(
                     disc_logits,
@@ -486,7 +485,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                     callback=callback_gen,
                     learning_starts=self.gen_algo.learning_starts,
                     replay_buffer=self.gen_algo.replay_buffer,
-                    log_interval=4,
+                    log_interval=1,
                 )
 
             assert self.actor_lr_half_steps == 0
@@ -551,7 +550,6 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
     ) -> Mapping[str, th.Tensor]:
 
         expert_samples = self._next_expert_batch()
-
         gen_samples_inter = self.gen_algo.replay_buffer.sample(self.demo_batch_size)
         gen_samples = {
             "obs": gen_samples_inter.observations,
