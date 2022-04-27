@@ -12,8 +12,8 @@ eval_policy_ex = sacred.Experiment(
 
 @eval_policy_ex.config
 def replay_defaults():
-    eval_n_timesteps = int(1e4)  # Min timesteps to evaluate, optional.
-    eval_n_episodes = None  #set this to 100 to generate rollouts 3um episodes to evaluate, optional.
+    eval_n_timesteps = None  # Min timesteps to evaluate, optional.
+    eval_n_episodes = 100  #set this to 100 to generate rollouts 3um episodes to evaluate, optional.
 
     videos = True  # save video files
     video_kwargs = {}  # argumeents to VideoWrapper

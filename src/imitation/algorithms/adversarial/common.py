@@ -215,15 +215,22 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         self._global_step = 0
         self._disc_step = 0
         self._encoder_step = 0
-        self.n_gen_updates_per_round = int(n_disc_updates_per_round*n_gen_updates_per_round) # TODO-tim sort this out
+        self.n_gen_updates_per_round = int(n_disc_updates_per_round*n_gen_updates_per_round)
+
         self.n_disc_updates_per_round = n_disc_updates_per_round
         self.n_enc_updates_per_round = int(n_disc_updates_per_round*n_enc_updates_per_round)
 
         self.venv = venv
         self.gen_algo = gen_algo
-        self._reward_net = reward_net.to(gen_algo.device)
 
-        # self.actor_initial_lr = copy.deepcopy(self.gen_algo.actor.optimizer.param_groups[0]["lr"])
+        if actor_lr_half_steps != 0:
+            actor_lr_half_steps = int(actor_lr_half_steps/self.n_gen_updates_per_round)
+        else:
+            actor_lr_half_steps = 1e10
+
+        self.actor_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.gen_algo.actor.optimizer, step_size=actor_lr_half_steps, gamma=0.5)
+
+        self._reward_net = reward_net.to(gen_algo.device)
 
         self._encoder_net = encoder_net
         self._encoder_net_expert = encoder_net_expert
@@ -488,7 +495,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                     log_interval=1,
                 )
 
-            assert self.actor_lr_half_steps == 0
+            # assert self.actor_lr_half_steps == 0
             # if self.actor_lr_half_steps!= 0:
             #     self.gen_algo.actor.optimizer.param_groups[0]["lr"] = self.actor_initial_lr * 0.5 ** (self.gen_algo.num_timesteps // self.actor_lr_half_steps)
 
@@ -522,7 +529,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                 with self.logger.accumulate_means("gen"):
                     update_actor = True if self.gen_algo.num_timesteps > self.gen_algo.learning_starts + common_config.get_dac_parameters()["policy_updates_delay"] else False
                     self.gen_algo.train(batch_size=self.gen_algo.batch_size, gradient_steps=self.n_gen_updates_per_round, update_actor=update_actor)
-
+                    self.actor_lr_scheduler.step()
 
             callback_gen.on_training_end()
 

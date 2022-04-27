@@ -80,7 +80,7 @@ def fast():
     parallel = False  # easier to debug with everything in one process
     max_episode_steps = 5
 
-    locals()  # quieten flake8
+    locals()  # quieten flake8td
 
 
 @common_ingredient.capture

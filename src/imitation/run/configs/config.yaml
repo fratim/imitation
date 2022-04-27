@@ -2,6 +2,7 @@ seed: 1
 env: "hopper"
 dem: "hopper"
 dem_mod: 0
+dem_algo: td3
 
 environment:
     name: seals_${env}
@@ -19,13 +20,13 @@ disc_opt_cls: "adam"
 alt_enc_disc: False
 task_name: "gridsearch2"
 output_dir: "/work/frtim"
-actor_lr_half_steps: 0
+actor_lr_half_steps: 200000
 
 defaults:
     - where: "cpu"
     - wandb: "yes"
-    - exp_enc: "identity"
-    - learner_enc: "identity"
+    - exp_enc: "reduced"
+    - learner_enc: "reduced"
     - sacred: standard
     - override /hydra/launcher: submitit_slurm
 
@@ -43,7 +44,7 @@ hydra:
         name: testscript
         _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
         comment: null
-        exclude: gnodec1
+        exclude: gnodec1,gnodec5
         max_num_timeout: 0
         additional_parameters: {}
         array_parallelism: 100

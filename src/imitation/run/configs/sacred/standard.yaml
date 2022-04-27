@@ -3,11 +3,11 @@ eval_rl_policy:
     named_configs:
         - ${environment.name}
     config_updates:
-        policy_path: ${output_dir}/trained_rl_policies/${environment.name}/model${sacred.eval_rl_policy.model}
-        policy_type: td3
+        policy_path: ${output_dir}/trained_rl_policies/${environment.name}/${sacred.eval_rl_policy.config_updates.policy_type}/model${sacred.eval_rl_policy.model}
+        policy_type: sac
         videos: 0
         seed: ${seed}
-        rollout_save_path: ${output_dir}/trained_rl_policies/${environment.name}/model${sacred.eval_rl_policy.model}/rollouts/final.pkl
+        rollout_save_path: ${output_dir}/trained_rl_policies/${environment.name}/${sacred.eval_rl_policy.config_updates.policy_type}/model${sacred.eval_rl_policy.model}/rollouts/final.pkl
 
 train_adversarial:
     command_name: gail
@@ -23,11 +23,11 @@ train_adversarial:
                 wandb_tag: ${task_name}
                 wandb_name_prefix: ${task_name}
         demonstrations:
-#            rollout_path: ${output_dir}/trained_rl_policies/${environment.name}/model${demonstrator.model}/rollouts/final.pkl
-            rollout_path: /work/frtim/airl_saved/rl_demos/env=seals_hopper_trunc,seed=three/logss/rollouts/final.pkl
+            rollout_path: ${output_dir}/trained_rl_policies/${environment.name}/${dem_algo}/model${demonstrator.model}/rollouts/final.pkl
+#            rollout_path: /work/frtim/airl_saved/rl_demos/env=seals_hopper_trunc,seed=three/logss/rollouts/final.pkl
         seed: ${seed}
         algorithm_kwargs:
-            n_gen_updates_per_round: ${n_enc}
+            n_gen_updates_per_round: ${n_gen}
             n_disc_updates_per_round: ${n_disc}
             n_enc_updates_per_round: ${n_enc}
             enc_lr: ${enc_lr}
