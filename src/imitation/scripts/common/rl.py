@@ -22,32 +22,51 @@ from imitation.scripts.common import common as common_config
 rl_ingredient = sacred.Ingredient("rl", ingredients=[train_ingredient])
 logger = logging.getLogger(__name__)
 
+STABLE_BASELINES_CLASSES = {
+    "ppo": stable_baselines3.PPO,
+    "td3": stable_baselines3.TD3,
+    "sac": stable_baselines3.SAC,
+}
 
 @rl_ingredient.config
 def config():
-    rl_cls = stable_baselines3.TD3
+    # rl_cls = stable_baselines3.TD3
+    rl_algo = None
+    rl_cls = STABLE_BASELINES_CLASSES[rl_algo]
+
     batch_size = 2048  # batch size for RL algorithm
 
     dac_parameters = common_config.get_dac_parameters()
 
+    #TODO start only after 10k transitions
+    #TODO read page 17 and figure out how for SAC the action is squashed and how the policy is defined during rollout
+
     # TODO fix that learning rate is taken from dac_parameters
     rl_kwargs = dict(
-        # parameters taken from DA paper
         gamma=0.99,
         tau=0.005,
         learning_rate=0.001,
-        target_policy_noise=0.2,
-        target_noise_clip=0.5,
-        # unverified parameters
         policy="MlpPolicy",
-        learning_starts=dac_parameters["min_samples_to_start"],  # 1000 in DAC, 10000 normally for TD3
+        learning_starts=dac_parameters["min_samples_to_start"],
         batch_size=dac_parameters["batch_size"],
-        # Buffer with infinite size
         replay_buffer_class=ReplayBuffer,
         buffer_size=100000000,
         optimize_memory_usage=False,
-        policy_delay=1,
-        action_noise=NormalActionNoise(mean=[0, 0, 0], sigma=[0.1, 0.1, 0.1]))
+        action_noise=NormalActionNoise(mean=[0, 0, 0], sigma=[0.1, 0.1, 0.1]),
+    )
+
+    if rl_algo == "td3":
+        rl_kwargs_td3 = dict(
+            policy_delay=1,
+            target_policy_noise=0.2,
+            target_noise_clip=0.5
+        )
+        rl_kwargs.update(rl_kwargs_td3)
+    elif rl_algo == "sac":
+        pass
+    else:
+        raise NotImplementedError("Unknown policy type")
+
     locals()  # quieten flake8
 
 # @rl_ingredient.config
@@ -129,6 +148,7 @@ def make_rl_algo(
         gradient_steps=-1,
         **rl_kwargs,
     )
+
     logger.info(f"RL algorithm: {type(rl_algo)}")
     logger.info(f"Policy network summary:\n {rl_algo.policy}")
     return rl_algo

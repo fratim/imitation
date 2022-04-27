@@ -17,6 +17,8 @@ train_adversarial:
       - ${exp_enc.config}
       - ${wandb.value}
     config_updates:
+        rl:
+            rl_algo: ${rl_algo}
         common:
             log_dir: logss/
             wandb:
