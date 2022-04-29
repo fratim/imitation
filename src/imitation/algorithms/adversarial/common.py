@@ -20,6 +20,7 @@ from imitation.rewards import reward_nets, reward_wrapper
 from imitation.util import logger, networks, util
 from imitation.scripts.common import common as common_config
 
+from sklearn import preprocessing
 import time
 import copy
 
@@ -195,6 +196,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         eval_env=None,
         alt_enc_disc=False,
         actor_lr_half_steps=0,
+        scale_obs=False
     ):
         if disc_opt_cls == "adam":
             disc_opt_cls = th.optim.Adam
@@ -202,6 +204,11 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             disc_opt_cls = th.optim.RMSprop
         else:
             raise NotImplemented("Unknown Discriminator Optimizor class, neither adam nor RMSprop")
+
+        if scale_obs:
+            self.scaler = self.get_scaler(demonstrations)
+        else:
+            self.scaler = None
 
         self.demo_batch_size = demo_batch_size
         self._demo_data_loader = None
@@ -282,6 +289,15 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
 
         self.gen_algo.set_env(self.venv_train)
         self.gen_algo.set_logger(self.logger)
+
+    def get_scaler(self, demonstrations):
+
+        X = [traj.obs for traj in demonstrations]
+        X = np.concatenate(X, axis=0)
+        scaler = preprocessing.StandardScaler().fit(X)
+
+        return scaler
+
 
     @property
     def policy(self) -> policies.BasePolicy:
@@ -376,7 +392,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         self._disc_step += 1
 
         # compute/write stats and TensorBoard data
-        if self._disc_step % 2000 == 0:
+        if self._disc_step % 8000 == 0:
             with th.no_grad():
                 train_stats = compute_train_stats(
                     disc_logits,
@@ -422,7 +438,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         self._encoder_opt.step()
         self._encoder_step += 1
 
-        if self._encoder_step % 2000 == 0:
+        if self._encoder_step % 8000 == 0:
             # compute/write stats and TensorBoard data
             with th.no_grad():
                 train_stats = compute_train_stats(
@@ -493,6 +509,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                     learning_starts=self.gen_algo.learning_starts,
                     replay_buffer=self.gen_algo.replay_buffer,
                     log_interval=1,
+                    scaler=self.scaler,
                 )
 
             # assert self.actor_lr_half_steps == 0

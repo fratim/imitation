@@ -66,4 +66,4 @@ def wandb_init(
             "Trying to call `wandb.init()` but `wandb` not installed: "
             "try `pip install wandb`.",
         ) from e
-    wandb.init(config=_run.config, **updated_wandb_kwargs)
+    wandb.init(config=_run.config, settings=wandb.Settings(start_method="fork"), **updated_wandb_kwargs)
