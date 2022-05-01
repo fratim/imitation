@@ -181,8 +181,8 @@ def build_mlp(
             raise ValueError("squeeze_output is only applicable when out_size=1")
         layers[f"{prefix}squeeze"] = SqueezeLayer()
 
-    # if use_bias == False:
-    #     layers["sigmoid"] = torch.nn.Sigmoid()
+    if use_bias == False:
+        layers["sigmoid"] = torch.nn.Sigmoid()
 
     model = nn.Sequential(layers)
 

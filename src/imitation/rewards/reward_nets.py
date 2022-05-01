@@ -401,10 +401,10 @@ class BasicEncoderNet(EncoderNet):
         if self.target_states is not None:
             input = input[:, self.target_states]
 
-        # attention = self.mlp(input)
-        # outputs = attention * input
+        attention = self.mlp(input)
+        outputs = attention * input
 
-        outputs = self.mlp(input)
+        # outputs = self.mlp(input)
 
         return outputs
 
