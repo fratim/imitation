@@ -3,6 +3,8 @@ dem: "hopper"
 dem_mod: 0
 dem_algo: td3
 
+debug: False
+
 environment:
     name: seals_${env}
 demonstrator:
@@ -20,12 +22,13 @@ alt_enc_disc: False
 task_name: "gridsearch2"
 #output_dir: "/work/frtim"
 output_dir: "/scratch/shared/beegfs/frtim"
-actor_lr_half_steps: 200000
+actor_lr_half_steps: 500000
 rl_algo: td3
 scale_obs: False
+n_expert_trajs: -1
 
 defaults:
-    - where: "cpu"
+    - where: "gpu"
     - wandb: "yes"
     - exp_enc: "reduced"
     - learner_enc: "reduced"

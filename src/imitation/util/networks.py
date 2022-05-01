@@ -6,6 +6,7 @@ import functools
 from typing import Iterable, Optional, Type
 
 import torch as th
+import torch.nn
 from torch import nn
 
 
@@ -179,6 +180,9 @@ def build_mlp(
         if out_size != 1:
             raise ValueError("squeeze_output is only applicable when out_size=1")
         layers[f"{prefix}squeeze"] = SqueezeLayer()
+
+    # if use_bias == False:
+    #     layers["sigmoid"] = torch.nn.Sigmoid()
 
     model = nn.Sequential(layers)
 

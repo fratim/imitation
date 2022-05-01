@@ -6,6 +6,7 @@ from typing import Callable, Iterable, Sequence, Tuple
 import gym
 import numpy as np
 import torch as th
+import torch.nn
 from stable_baselines3.common import preprocessing
 from torch import nn
 
@@ -399,7 +400,12 @@ class BasicEncoderNet(EncoderNet):
     def forward(self, input):
         if self.target_states is not None:
             input = input[:, self.target_states]
+
+        # attention = self.mlp(input)
+        # outputs = attention * input
+
         outputs = self.mlp(input)
+
         return outputs
 
 class BasicEncoder:

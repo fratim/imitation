@@ -48,7 +48,7 @@ def wandb_init(
     env_name = _run.config["common"]["env_name"]
     root_seed = _run.config["seed"]
 
-    run_id = os.getcwd().split("/")[-1]
+    run_id = os.getcwd().split("/")[-2]
 
     updated_wandb_kwargs = {}
     updated_wandb_kwargs.update(wandb_kwargs)

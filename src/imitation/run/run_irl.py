@@ -20,7 +20,7 @@ def save_git_status():
     f.write(diff_message)
     f.close()
 
-def my_func(irl_config):
+def my_func(irl_config, sleep=True):
 
     time.sleep(random.random()*100) # sleep for some time between 0 and 100 seconds to avoid all processes starting at once
 
@@ -32,6 +32,33 @@ def my_func(irl_config):
     relative_mean_reward_imitator = train_adversarial.main_console(irl_config)
     return relative_mean_reward_imitator
 
+def get_configs_for_different_seeds(irl_config, n_seeds):
+    irl_configs = []
+    cwd = os.getcwd()
+
+    for seed in range(n_seeds):
+        irl_config_seedx = copy.deepcopy(irl_config)
+        irl_config_seedx["config_updates"]["seed"] = seed
+        irl_config_seedx["working_dir"] = os.path.join(cwd, f"seed_{seed}")
+        irl_configs.append(irl_config_seedx)
+
+    return irl_configs
+
+def launch_configs(configs):
+
+    if len(configs) == 1:
+        my_func(configs[0], sleep=False)
+
+    else:
+        queue = Queue()
+        processes = [Process(target=my_func, args=(specconfig,)) for specconfig in configs]
+
+        for p in processes:
+            p.start()
+        for p in processes:
+            p.join()
+
+
 @hydra.main(config_path="configs/", config_name="config.yaml")
 def main(config):
 
@@ -39,23 +66,13 @@ def main(config):
 
     irl_config = hydra_to_sacred(config.sacred["train_adversarial"])
 
-    cwd = os.getcwd()
+    if config.debug:
+        n_seeds = 1
+    else:
+        n_seeds = 3
 
-    irl_configs = []
-
-    for seed in range(4):
-        irl_config_seedx = copy.deepcopy(irl_config)
-        irl_config_seedx["config_updates"]["seed"] = seed
-        irl_config_seedx["working_dir"] = os.path.join(cwd, f"seed_{seed}")
-        irl_configs.append(irl_config_seedx)
-
-    queue = Queue()
-    processes = [Process(target=my_func, args=(specconfig,)) for specconfig in irl_configs]
-
-    for p in processes:
-        p.start()
-    for p in processes:
-        p.join()
+    irl_configs = get_configs_for_different_seeds(irl_config, n_seeds=n_seeds)
+    launch_configs(irl_configs)
 
     return None
 
