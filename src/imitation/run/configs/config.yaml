@@ -1,7 +1,7 @@
 env: "hopper"
 dem: "hopper"
 dem_mod: 0
-dem_algo: td3
+dem_algo: sac
 
 debug: False
 
@@ -26,12 +26,14 @@ actor_lr_half_steps: 500000
 rl_algo: td3
 scale_obs: False
 n_expert_trajs: -1
+encoder_batch_size: 1
+use_airl: False
 
 defaults:
     - where: "gpu"
     - wandb: "yes"
     - exp_enc: "reduced"
-    - learner_enc: "reduced"
+    - learner_enc: "reduced_network"
     - sacred: standard
     - override /hydra/launcher: submitit_slurm
 

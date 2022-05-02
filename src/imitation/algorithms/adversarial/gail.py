@@ -31,7 +31,11 @@ class LogSigmoidRewardNet(reward_nets.RewardNet):
     ) -> th.Tensor:
         """Computes negative log sigmoid of base reward network."""
         logits = self.base.forward(state, action, next_state, done)
-        return -F.logsigmoid(logits)
+
+        if self.base.use_airl:
+            return -logits
+        else:
+            return -F.logsigmoid(logits)
 
 
 class GAIL(common.AdversarialTrainer):

@@ -40,6 +40,8 @@ train_adversarial:
             actor_lr_half_steps: ${actor_lr_half_steps}
             scale_obs: ${scale_obs}
             n_expert_trajs: ${n_expert_trajs}
+            encoder_batch_size: ${encoder_batch_size}
+            use_airl: ${use_airl}
 
 eval_irl_policy:
     named_configs:

@@ -197,7 +197,9 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         alt_enc_disc=False,
         actor_lr_half_steps=0,
         scale_obs=False,
-        n_expert_trajs = -1,
+        n_expert_trajs=-1,
+        encoder_batch_size=1,
+        use_airl=False,
     ):
         if disc_opt_cls == "adam":
             disc_opt_cls = th.optim.Adam
@@ -219,6 +221,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             self.scaler = None
 
         self.demo_batch_size = demo_batch_size
+        self.encoder_batch_size = int(demo_batch_size/2 * encoder_batch_size)
         self._demo_data_loader = None
         self._endless_expert_iterator = None
         super().__init__(
@@ -246,6 +249,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
         self.actor_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.gen_algo.actor.optimizer, step_size=actor_lr_half_steps, gamma=0.5)
 
         self._reward_net = reward_net.to(gen_algo.device)
+        self._reward_net.use_airl = use_airl
 
         self._encoder_net = encoder_net
         self._encoder_net_expert = encoder_net_expert
@@ -651,7 +655,7 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
                 different from `self.demo_batch_size`.
         """
 
-        gen_samples_inter = self.gen_algo.replay_buffer.sample(int(self.demo_batch_size/2)) # TODO-tim verify it makes sense to train encoder with half the samples
+        gen_samples_inter = self.gen_algo.replay_buffer.sample(self.encoder_batch_size)
         gen_samples = {
             "obs": gen_samples_inter.observations,
             "acts": gen_samples_inter.actions,
