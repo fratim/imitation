@@ -20,8 +20,8 @@ use_wgan: False
 disc_opt_cls: "adam"
 alt_enc_disc: False
 task_name: "gridsearch2"
-#output_dir: "/work/frtim"
-output_dir: "/scratch/shared/beegfs/frtim"
+output_dir: "/work/frtim"
+#output_dir: "/scratch/shared/beegfs/frtim"
 actor_lr_half_steps: 500000
 rl_algo: td3
 scale_obs: False

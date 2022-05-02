@@ -22,7 +22,7 @@ def save_git_status():
 
 def my_func(irl_config, sleep=True):
 
-    time.sleep(random.random()*100) # sleep for some time between 0 and 100 seconds to avoid all processes starting at once
+    time.sleep(random.random()*100) if sleep else None # sleep for some time between 0 and 100 seconds to avoid all processes starting at once
 
     os.makedirs(irl_config["working_dir"])
     os.chdir(irl_config["working_dir"])

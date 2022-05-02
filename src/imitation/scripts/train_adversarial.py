@@ -146,7 +146,7 @@ def train_adversarial(
 
     encoder_net_expert = encoder.make_encoder_net(**demonstrations.get_encoder_kwargs(expert_trajs=expert_trajs))
 
-    encoder_net_learner = encoder.make_encoder_net(venv=venv, output_dim=encoder_net_expert.output_dimension, **encoder_learner_kwargs)
+    encoder_net_learner = encoder.make_encoder_net(venv=venv, output_dim=(encoder_net_expert.output_dimension**2), **encoder_learner_kwargs)
 
     reward_net = reward.make_reward_net(input_dimension=encoder_net_expert.output_dimension*2)
 

@@ -402,10 +402,9 @@ class BasicEncoderNet(EncoderNet):
             input = input[:, self.target_states]
 
         attention = self.mlp(input)
-        outputs = attention * input
-
-        # outputs = self.mlp(input)
-
+        attention = torch.reshape(attention, (-1, input.shape[1], input.shape[1]))
+        outputs = torch.bmm(attention, input.unsqueeze(-1))
+        outputs = outputs.squeeze(-1)
         return outputs
 
 class BasicEncoder:
