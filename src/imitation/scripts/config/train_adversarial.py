@@ -63,212 +63,25 @@ def reduced_network():
     )
 
 
-# @train_adversarial_ex.config
-# def aliases_default_gen_batch_size(algorithm_kwargs, rl):
-#     # Setting generator buffer capacity and discriminator batch size to
-#     # the same number is equivalent to not using a replay buffer at all.
-#     # "Disabling" the replay buffer seems to improve convergence speed, but may
-#     # come at a cost of stability.
-#     algorithm_kwargs["gen_replay_buffer_capacity"] = rl["batch_size"]
-
-
-# Shared settings
-
-
-ANT_SHARED_LOCALS = dict(
-    total_timesteps=int(3e7),
-    algorithm_kwargs=dict(shared=dict(demo_batch_size=8192)),
-    rl=dict(batch_size=16384),
-)
-
-
-# Classic RL Gym environment named configs
-
-
-@train_adversarial_ex.named_config
-def acrobot():
-    env_name = "Acrobot-v1"
-    algorithm_kwargs = {"allow_variable_horizon": True}
-
-
-@train_adversarial_ex.named_config
-def cartpole():
-    common = dict(env_name="CartPole-v1")
-    algorithm_kwargs = {"allow_variable_horizon": True}
-
-
-@train_adversarial_ex.named_config
-def seals_cartpole():
-    common = dict(env_name="seals/CartPole-v0")
-    total_timesteps = int(1.4e6)
-
-
-@train_adversarial_ex.named_config
-def mountain_car():
-    common = dict(env_name="MountainCar-v0")
-    algorithm_kwargs = {"allow_variable_horizon": True}
-
-
-@train_adversarial_ex.named_config
-def seals_mountain_car():
-    common = dict(env_name="seals/MountainCar-v0")
-    algorithm_kwargs = dict(
-        # Number of discriminator updates after each round of generator updates
-        n_disc_updates_per_round=128,
-        disc_lr=1e-3
-    )
-
-
-
-@train_adversarial_ex.named_config
-def pendulum():
-    common = dict(env_name="Pendulum-v1")
-
-# Standard MuJoCo Gym environment named configs
-
-
-@train_adversarial_ex.named_config
-def seals_ant():
-    locals().update(**ANT_SHARED_LOCALS)
-    common = dict(env_name="seals/Ant-v0")
-
-
-@train_adversarial_ex.named_config
-def half_cheetah():
-    common = dict(env_name="HalfCheetah-v2")
-    rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
-    algorithm_specific = dict(
-        gail=dict(total_timesteps=int(8e6)),
-    )
-    reward = dict(
-        algorithm_specific=dict(),
-    )
-    algorithm_kwargs = dict(
-        # Number of discriminator updates after each round of generator updates
-        n_disc_updates_per_round=16,
-        disc_lr=1e-3,
-        n_enc_updates_per_round=16,
-        enc_lr=1e-3,
-        enc_weight_decay=0,  # 1e-4
-        # Equivalent to no replay buffer if batch size is the same
-        gen_replay_buffer_capacity=16384,
-        demo_batch_size=8192,
-    )
-
-@train_adversarial_ex.named_config
-def seals_half_cheetah():
-    common = dict(env_name="seals/HalfCheetah-v0")
-    rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
-    algorithm_specific = dict(
-        gail=dict(total_timesteps=int(8e6)),
-    )
-    reward = dict(
-        algorithm_specific=dict(),
-    )
-    algorithm_kwargs = dict(
-        # Number of discriminator updates after each round of generator updates
-        n_disc_updates_per_round=16,
-        disc_lr=1e-3,
-        n_enc_updates_per_round=16,
-        enc_lr=1e-3,
-        enc_weight_decay=0,  # 1e-4
-        # Equivalent to no replay buffer if batch size is the same
-        gen_replay_buffer_capacity=16384,
-        demo_batch_size=8192,
-    )
-
-@train_adversarial_ex.named_config
-def hopper():
-    common = dict(env_name="Hopper-v3")
-    rl = dict(batch_size=0)
-    algorithm_specific = dict(
-        gail=dict(total_timesteps=int(8e6)),
-    )
-    reward = dict(
-        algorithm_specific=dict(
-            gail=dict(
-                net_cls=reward_nets.BasicRewardNet,
-                net_kwargs=dict(),
-            ),
-        ),
-    )
-    algorithm_kwargs = dict(
-        # Number of discriminator updates after each round of generator updates
-        n_disc_updates_per_round=1000,
-        disc_lr=1e-3,
-        n_enc_updates_per_round=1,
-        enc_lr=1e-3,
-        enc_weight_decay=0,  # 1e-4
-        # Equivalent to no replay buffer if batch size is the same
-        # gen_replay_buffer_capacity=16384,
-        demo_batch_size=100,
-    )
-
-
 @train_adversarial_ex.named_config
 def seals_hopper():
     common = dict(env_name="seals/Hopper-v0")
 
+@train_adversarial_ex.named_config
+def seals_walker():
+    common = dict(env_name="seals/Walker2d-v0")
 
 @train_adversarial_ex.named_config
-def seals_humanoid():
-    common = dict(env_name="seals/Humanoid-v0")
-    total_timesteps = int(4e6)
-
-
-@train_adversarial_ex.named_config
-def reacher():
-    common = dict(env_name="Reacher-v2")
-    algorithm_kwargs = {"allow_variable_horizon": True}
-
+def seals_half_cheetah():
+    common = dict(env_name="seals/HalfCheetah-v0")
 
 @train_adversarial_ex.named_config
 def seals_swimmer():
     common = dict(env_name="seals/Swimmer-v0")
-    rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
-    algorithm_specific = dict(
-        gail=dict(total_timesteps=int(8e6)),
-    )
-    reward = dict(
-        algorithm_specific=dict(),
-    )
-    algorithm_kwargs = dict(
-        # Number of discriminator updates after each round of generator updates
-        n_disc_updates_per_round=16,
-        disc_lr=1e-3,
-        n_enc_updates_per_round=16,
-        enc_lr=1e-3,
-        enc_weight_decay=0,  # 1e-4
-        # Equivalent to no replay buffer if batch size is the same
-        gen_replay_buffer_capacity=16384,
-        demo_batch_size=8192,
-    )
-
 
 @train_adversarial_ex.named_config
-def seals_walker():
-    common = dict(env_name="seals/Walker2d-v0")
-    # rl = dict(batch_size=16384, rl_kwargs=dict(batch_size=1024))
-    rl = dict(batch_size=16384)
-    algorithm_specific = dict(
-        gail=dict(total_timesteps=int(8e6)),
-    )
-    reward = dict(
-        algorithm_specific=dict(
-        ),
-    )
-    algorithm_kwargs = dict(
-        # Number of discriminator updates after each round of generator updates
-        n_disc_updates_per_round=16,
-        disc_lr=1e-3,
-        n_enc_updates_per_round=16,
-        enc_lr=1e-3,
-        enc_weight_decay=0,  # 1e-4
-        # Equivalent to no replay buffer if batch size is the same
-        gen_replay_buffer_capacity=16384,
-        demo_batch_size=8192,
-    )
-
+def seals_ant():
+    common = dict(env_name="seals/Ant-v0")
 
 # Debug configs
 
