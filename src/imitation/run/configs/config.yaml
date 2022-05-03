@@ -48,7 +48,7 @@ hydra:
         tasks_per_node: 1
         mem_gb: 15
         nodes: 1
-        name: testscript
+        name: ${hydra.job.override_dirname}
         _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
         comment: null
         exclude: gnodec1,gnodec5
@@ -58,7 +58,7 @@ hydra:
         setup: null
 
     run:
-        dir: ${output_dir}/airl_runs/${task_name}/${environment.name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
+        dir: ${output_dir}/airl_runs/${task_name}/${environment.name}/${now:%Y-%m-%d}_${now:%H-%M-%S}/${hydra.job.override_dirname}
     sweep:
         dir: ${output_dir}/airl_runs/${task_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
         subdir: ${hydra.job.override_dirname}

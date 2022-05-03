@@ -1,6 +1,6 @@
 eval_rl_policy:
     model: 0
-    policy_prefix: sac_soft
+    policy_prefix: sac
     named_configs:
         - ${environment.name}
     config_updates:
@@ -26,7 +26,7 @@ train_adversarial:
                 wandb_tag: ${task_name}
                 wandb_name_prefix: ${task_name}
         demonstrations:
-            rollout_path: ${output_dir}/trained_rl_policies/${environment.name}/${dem_algo}/model${demonstrator.model}/rollouts/final.pkl
+            rollout_path: ${output_dir}/trained_rl_policies/${demonstrator.name}/${dem_algo}/model${demonstrator.model}/rollouts/final.pkl
         seed: 0
         algorithm_kwargs:
             n_gen_updates_per_round: ${n_gen}

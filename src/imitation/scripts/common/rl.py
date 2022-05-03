@@ -51,8 +51,7 @@ def config():
         batch_size=dac_parameters["batch_size"],
         replay_buffer_class=ReplayBuffer,
         buffer_size=100000000,
-        optimize_memory_usage=False,
-        action_noise=NormalActionNoise(mean=[0, 0, 0], sigma=[0.1, 0.1, 0.1]),
+        optimize_memory_usage=False
     )
 
     if rl_algo == "td3":
@@ -139,6 +138,8 @@ def make_rl_algo(
     # else:
     #     raise TypeError(f"Unsupported RL algorithm '{rl_cls}'")
 
+    n_actions = len(venv.action_space.low)
+
     rl_algo = rl_cls(
         # policy=train["policy_cls"],
         # policy_kwargs=train["policy_kwargs"],
@@ -146,6 +147,7 @@ def make_rl_algo(
         seed=_seed,
         train_freq=tuple((1, "episode")),
         gradient_steps=-1,
+        action_noise=NormalActionNoise(mean=[0]*n_actions, sigma=[0.1]*n_actions),
         **rl_kwargs,
     )
 
