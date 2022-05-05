@@ -104,9 +104,11 @@ def get_reduced_state_space(env_name):
     if "MountainCar" in env_name:
         return 0,
     elif "Hopper" in env_name:
-        return 0, 1, 2
+        return 0, 2
     elif "Walker" in env_name:
-        return 0, 1, 2
+        return 0, 2
+    elif "Cheetah" in env_name:
+        return 0, 1
     else:
         raise NotImplemented(f"reduced State space not yet implemented for env {env_name}")
 

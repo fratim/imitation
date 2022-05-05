@@ -48,10 +48,10 @@ hydra:
         tasks_per_node: 1
         mem_gb: 15
         nodes: 1
-        name: ${hydra.job.override_dirname}
+        name: ${hydra.job.name}
         _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
         comment: null
-        exclude: gnodec1,gnodec5
+        exclude: gnodec1
         max_num_timeout: 0
         additional_parameters: {}
         array_parallelism: 100
@@ -62,9 +62,6 @@ hydra:
     sweep:
         dir: ${output_dir}/airl_runs/${task_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
         subdir: ${hydra.job.override_dirname}
-
-# add job id
-job_id: ${hydra.job.num}
 
 
 
