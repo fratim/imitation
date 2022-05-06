@@ -25,9 +25,14 @@ train_adversarial:
             wandb:
                 wandb_tag: ${task_name}
                 wandb_name_prefix: ${task_name}
+            slim_reduction: ${slim_reduction}
         demonstrations:
             rollout_path: ${output_dir}/trained_rl_policies/${demonstrator.name}/${dem_algo}/model${demonstrator.model}/rollouts/final.pkl
         seed: 0
+        encoder_learner_kwargs:
+            enc_is_linear: ${enc_is_linear}
+            enc_use_bias: ${enc_use_bias}
+            enc_scale: ${enc_scale}
         algorithm_kwargs:
             n_gen_updates_per_round: ${n_gen}
             n_disc_updates_per_round: ${n_disc}

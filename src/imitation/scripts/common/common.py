@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 @common_ingredient.config
 def config():
+
+    slim_reduction = True
     # Logging
     log_root = None
     log_dir = None
@@ -99,16 +101,23 @@ def get_dac_parameters():
 
 
 @common_ingredient.capture
-def get_reduced_state_space(env_name):
+def get_reduced_state_space(env_name, slim_reduction):
 
-    if "MountainCar" in env_name:
-        return 0,
-    elif "Hopper" in env_name:
-        return 0, 2
+    if "Hopper" in env_name:
+        if slim_reduction:
+            return 0, 2
+        else:
+            return 0, 1, 2
     elif "Walker" in env_name:
-        return 0, 2
+        if slim_reduction:
+            return 0, 2
+        else:
+            return 0, 1, 2
     elif "Cheetah" in env_name:
-        return 0, 1
+        if slim_reduction:
+            return 0,
+        else:
+            return 0, 1
     else:
         raise NotImplemented(f"reduced State space not yet implemented for env {env_name}")
 

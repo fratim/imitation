@@ -352,6 +352,9 @@ class BasicEncoderNet(EncoderNet):
         action_space: gym.Space,
         output_dim: int,
         target_states,
+        enc_is_linear,
+        enc_use_bias,
+        enc_scale,
         **kwargs,
     ):
         """Builds reward MLP.
@@ -369,14 +372,22 @@ class BasicEncoderNet(EncoderNet):
                          action_space=action_space,
                          target_states=target_states)
 
-        self.output_dim = output_dim
+        self.is_linear = enc_is_linear
+        self.use_bias = enc_use_bias
+        self.scale = enc_scale
+        self.type = "network"
 
         if target_states is None:
             self.input_dim = preprocessing.get_flattened_obs_dim(observation_space)
         else:
             self.input_dim = len(target_states)
 
-        self.type = "network"
+        self.output_dim = output_dim
+
+        if not self.use_bias:
+            self.output_dim_network = self.output_dim * self.input_dim
+        else:
+            self.output_dim_network = self.output_dim * (self.input_dim + 1)
 
         full_build_mlp_kwargs = {
             "hid_sizes": [],
@@ -386,24 +397,47 @@ class BasicEncoderNet(EncoderNet):
             {
                 # we do not want these overridden
                 "in_size": self.input_dim,
-                "out_size": self.output_dim,
+                "out_size": self.output_dim_network,
                 "squeeze_output": False,
                 "flatten_input": False,
                 "normalize_input_layer": False,
                 "use_bias": False
             },
         )
-
-        self.mlp = networks.build_mlp(**full_build_mlp_kwargs)
-
+        if self.is_linear:
+            self.mlp = None
+            weights = torch.ones((self.output_dim_network), requires_grad=True)
+            self.weights = torch.nn.Parameter(weights)
+        else:
+            self.mlp = networks.build_mlp(**full_build_mlp_kwargs)
 
     def forward(self, input):
         if self.target_states is not None:
             input = input[:, self.target_states]
 
-        attention = self.mlp(input)
-        attention = torch.reshape(attention, (-1, input.shape[1], input.shape[1]))
-        outputs = torch.bmm(attention, input.unsqueeze(-1))
+        n_batches = input.shape[0]
+        assert input.shape[1] == self.input_dim
+
+        # append input vector by a one to allow for bias
+        if self.use_bias:
+            bias = torch.ones(n_batches, 1).to(self.device)
+            input_processed = torch.cat((input, bias), dim=1)
+        else:
+            input_processed = input
+
+        if self.is_linear:
+            attention = torch.sigmoid(self.weights)*self.scale
+            attention = attention.repeat(n_batches, 1, 1)
+        else:
+            attention = self.mlp(input)*self.scale
+
+        if self.use_bias:
+            attention = torch.reshape(attention, (-1, self.output_dim, self.input_dim + 1))
+        else:
+            attention = torch.reshape(attention, (-1, self.output_dim, self.input_dim))
+
+        outputs = torch.bmm(attention, input_processed.unsqueeze(-1))
+
         outputs = outputs.squeeze(-1)
         return outputs
 

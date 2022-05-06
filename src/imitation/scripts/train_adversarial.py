@@ -146,13 +146,7 @@ def train_adversarial(
 
     encoder_net_expert = encoder.make_encoder_net(**demonstrations.get_encoder_kwargs(expert_trajs=expert_trajs))
 
-    if encoder_learner_kwargs["encoder_type"] in ['identity', 'reduction']:
-        output_dim_learner_enc = encoder_net_expert.output_dimension
-    elif encoder_learner_kwargs["encoder_type"] in ['network', 'reduction_followed_by_network']:
-        output_dim_learner_enc = encoder_net_expert.output_dimension**2
-    else:
-        etype =encoder_learner_kwargs["encoder_type"]
-        raise ValueError(f"encoder type: {etype} unknown")
+    output_dim_learner_enc = encoder_net_expert.output_dimension
     encoder_net_learner = encoder.make_encoder_net(venv=venv, output_dim=output_dim_learner_enc, **encoder_learner_kwargs)
 
     reward_net = reward.make_reward_net(input_dimension=encoder_net_expert.output_dimension*2)

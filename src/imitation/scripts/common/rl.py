@@ -38,10 +38,6 @@ def config():
 
     dac_parameters = common_config.get_dac_parameters()
 
-    #TODO start only after 10k transitions
-    #TODO read page 17 and figure out how for SAC the action is squashed and how the policy is defined during rollout
-
-    # TODO fix that learning rate is taken from dac_parameters
     rl_kwargs = dict(
         gamma=0.99,
         tau=0.005,

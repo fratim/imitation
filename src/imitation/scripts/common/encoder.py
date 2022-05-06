@@ -32,6 +32,9 @@ def make_encoder_net(
     net_cls: Type[reward_nets.RewardNet],
     net_kwargs: Mapping[str, Any],
     output_dim: int,
+    enc_is_linear=False,
+    enc_use_bias=False,
+    enc_scale=False,
     venv: vec_env.VecEnv = None,
 ) -> reward_nets.RewardNet:
     """Builds a reward network.
@@ -65,6 +68,9 @@ def make_encoder_net(
             venv.action_space,
             output_dim,
             target_states=None,
+            enc_is_linear=enc_is_linear,
+            enc_use_bias=enc_use_bias,
+            enc_scale=enc_scale,
             **net_kwargs,
         )
         logging.info(f"Encoder network:\n {encoder_net}")
@@ -77,6 +83,9 @@ def make_encoder_net(
             venv.action_space,
             output_dim,
             target_states=target_states,
+            enc_is_linear=enc_is_linear,
+            enc_use_bias=enc_use_bias,
+            enc_scale=enc_scale,
             **net_kwargs,
         )
         logging.info(f"Encoder network:\n {encoder_net}")

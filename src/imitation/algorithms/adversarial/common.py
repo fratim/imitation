@@ -102,7 +102,10 @@ def compute_train_stats(
     ]  # type: Sequence[Tuple[str, float]]
 
     if encoder_net is not None and encoder_net.type == "network":
-        weights_array = encoder_net.mlp.dense_final.weight.cpu().numpy().flatten()
+        if encoder_net.mlp is not None:
+            weights_array = encoder_net.mlp.dense_final.weight.cpu().numpy().flatten()
+        else:
+            weights_array = encoder_net.weights.cpu().numpy().flatten()
         for i in range(len(weights_array)):
             pairs = pairs + [(f"zenc_weight_{i}", float(weights_array[i]))]
 

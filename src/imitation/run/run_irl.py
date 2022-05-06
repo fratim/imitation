@@ -4,7 +4,7 @@ from imitation.util.util import hydra_to_sacred
 from imitation.scripts import train_adversarial
 import wandb
 from git import Repo
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Pool
 import copy
 import os
 import time
@@ -57,6 +57,13 @@ def launch_configs(configs):
             p.start()
         for p in processes:
             p.join()
+
+        # while True:
+        #     time.sleep(500)
+        #     for p in processes:
+        #         if p.exitcode is not None and p.exitcode != 0:
+        #             raise ValueError("Some Process Failed")
+
 
 
 @hydra.main(config_path="configs/", config_name="config.yaml")

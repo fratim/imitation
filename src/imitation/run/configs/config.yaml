@@ -13,7 +13,7 @@ demonstrator:
 
 n_gen: 1
 n_disc: 1000
-n_enc: 1
+n_enc: 0.1
 enc_lr: 1e-3
 disc_lr: 1e-3
 use_wgan: False
@@ -29,6 +29,11 @@ n_expert_trajs: -1
 encoder_batch_size: 1
 use_airl: False
 
+slim_reduction: False
+enc_is_linear: True
+enc_use_bias: False
+enc_scale: 1
+
 defaults:
     - where: "gpu"
     - wandb: "yes"
@@ -40,7 +45,7 @@ defaults:
 hydra:
     launcher:
         submitit_folder: logs/multiruns/.submitit/%j
-        timeout_min: 2000
+        timeout_min: 1
         cpus_per_task: 8
         gpus_per_node: ${where.gpus_per_node}
         partition: ${where.partition}
@@ -53,7 +58,7 @@ hydra:
         comment: null
         exclude: gnodec1
         max_num_timeout: 0
-        additional_parameters: {}
+        additional_parameters: {time: "23:59:00"}
         array_parallelism: 100
         setup: null
 
