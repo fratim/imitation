@@ -23,6 +23,7 @@ from imitation.scripts.common import common as common_config
 from sklearn import preprocessing
 import time
 import copy
+from stable_baselines3.video import VideoRecorder
 
 def get_wgan_loss_disc(disc_logits, labels_ge_is_one):
     loss = torch.mean(disc_logits[(1 - labels_ge_is_one).bool()]) - torch.mean(disc_logits[labels_ge_is_one.bool()])
@@ -490,12 +491,12 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
 
         n_rounds = total_timesteps // self.n_disc_updates_per_round
 
-        eval_freq = 5000
+        eval_freq = 50000
 
         total_timesteps_in = total_timesteps
 
         eval_env = self.venv_eval
-        n_eval_episodes = 3
+        n_eval_episodes = 9
 
         total_timesteps, callback_gen = self.gen_algo._setup_learn(
             total_timesteps=total_timesteps_in,
@@ -506,6 +507,9 @@ class AdversarialTrainer(base.DemonstrationAlgorithm[types.Transitions]):
             reset_num_timesteps=False,
             tb_log_name="run",
         )
+
+        self.video_recorder = VideoRecorder(save_path=os.getcwd())
+        callback_gen.callbacks[1].video_recorder = self.video_recorder
 
         for r in tqdm.tqdm(range(0, n_rounds), desc="round"):
 
