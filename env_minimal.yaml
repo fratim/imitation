@@ -1,0 +1,10 @@
+name: env_im
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - cudatoolkit=10.2
+  - pytorch
+  - numpy
+  - mesalib
+prefix: /users/frtim/anaconda3/envs/env_im
